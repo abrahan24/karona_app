@@ -99,19 +99,27 @@ class _RegistroClienteScreenState extends State<RegistroClienteScreen> {
                 ),
                 const SizedBox(height: 15),
                 
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: _inputDecoration('Contraseña'),
-                  validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
-                ),
-                const SizedBox(height: 15),
+                // TextFormField(
+                //   controller: passwordController,
+                //   obscureText: true,
+                //   decoration: _inputDecoration('Contraseña'),
+                //   validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                // ),
+                // const SizedBox(height: 15),
                 
                 TextFormField(
                   controller: celularController,
                   decoration: _inputDecoration('Celular'),
                   keyboardType: TextInputType.phone,
                   validator: (value) => value!.isEmpty ? 'Ingrese su celular' : null,
+                ),
+                const SizedBox(height: 15),
+
+                TextFormField(
+                  controller: celularController,
+                  decoration: _inputDecoration('Celular de Referencia'),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value!.isEmpty ? 'Ingrese su celular de referencia' : null,
                 ),
                 const SizedBox(height: 20),
                 

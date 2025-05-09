@@ -8,7 +8,8 @@ class RegistroConductorScreen extends StatefulWidget {
   const RegistroConductorScreen({super.key});
 
   @override
-  State<RegistroConductorScreen> createState() => _RegistroConductorScreenState();
+  State<RegistroConductorScreen> createState() =>
+      _RegistroConductorScreenState();
 }
 
 class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
@@ -25,15 +26,16 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController celularController = TextEditingController();
   final TextEditingController licenciaController = TextEditingController();
-  final TextEditingController categoriaLicenciaController = TextEditingController();
+  final TextEditingController categoriaLicenciaController =
+      TextEditingController();
   final TextEditingController experienciaController = TextEditingController();
-  
+
   // Imágenes
   File? fotoRostro;
   File? fotoDocumento;
   File? fotoLicencia;
   final ImagePicker picker = ImagePicker();
-  
+
   // Lista de géneros
   final List<String> generos = ['Masculino', 'Femenino', 'Otro'];
 
@@ -56,40 +58,100 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                 TextFormField(
                   controller: nombresController,
                   decoration: _inputDecoration('Nombres'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese sus nombres' : null,
+                  validator:
+                      (value) => value!.isEmpty ? 'Ingrese sus nombres' : null,
                 ),
                 const SizedBox(height: 15),
-                
+
                 // ... (otros campos comunes como en RegistroClienteScreen)
-                
+                TextFormField(
+                  controller: apellidosController,
+                  decoration: _inputDecoration('Apellidos'),
+                  validator:
+                      (value) =>
+                          value!.isEmpty ? 'Ingrese sus apellidos' : null,
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField<String>(
+                  value: generoSeleccionado,
+                  decoration: _inputDecoration('Género'),
+                  items:
+                      generos.map((genero) {
+                        return DropdownMenuItem(
+                          value: genero,
+                          child: Text(genero),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      generoSeleccionado = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 15),
+
+                TextFormField(
+                  controller: direccionController,
+                  decoration: _inputDecoration('Dirección'),
+                  validator:
+                      (value) => value!.isEmpty ? 'Ingrese su dirección' : null,
+                ),
+                const SizedBox(height: 15),
+
+                TextFormField(
+                  controller: correoController,
+                  decoration: _inputDecoration('Correo electrónico'),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value!.isEmpty) return 'Ingrese su correo';
+                    if (!value.contains('@')) return 'Correo no válido';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
+
+                TextFormField(
+                  controller: celularController,
+                  decoration: _inputDecoration('Celular'),
+                  keyboardType: TextInputType.phone,
+                  validator:
+                      (value) => value!.isEmpty ? 'Ingrese su celular' : null,
+                ),
+                const SizedBox(height: 15),
+
                 // Campos específicos de conductor
                 TextFormField(
                   controller: licenciaController,
                   decoration: _inputDecoration('Número de licencia'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese su licencia' : null,
+                  validator:
+                      (value) => value!.isEmpty ? 'Ingrese su licencia' : null,
                 ),
                 const SizedBox(height: 15),
-                
+
                 TextFormField(
                   controller: categoriaLicenciaController,
                   decoration: _inputDecoration('Categoría de licencia'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese la categoría' : null,
+                  validator:
+                      (value) => value!.isEmpty ? 'Ingrese la categoría' : null,
                 ),
                 const SizedBox(height: 15),
-                
+
                 TextFormField(
                   controller: experienciaController,
                   decoration: _inputDecoration('Años de experiencia'),
                   keyboardType: TextInputType.number,
-                  validator: (value) => value!.isEmpty ? 'Ingrese años de experiencia' : null,
+                  validator:
+                      (value) =>
+                          value!.isEmpty ? 'Ingrese años de experiencia' : null,
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Sección de imágenes (incluye foto de licencia)
                 _buildImageSection(),
-                
+
                 const SizedBox(height: 30),
-                
+
                 // Botón de registro
                 SizedBox(
                   width: double.infinity,
@@ -119,14 +181,21 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
       children: [
         const Text(
           'Documentación requerida:',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 10),
-        
+
         // Botones para fotos (similar a RegistroClienteScreen pero con adicional para licencia)
         ElevatedButton.icon(
           icon: const Icon(Icons.camera_alt, color: Colors.white),
-          label: const Text('Tomar foto de rostro', style: TextStyle(color: Colors.white)),
+          label: const Text(
+            'Tomar foto de rostro',
+            style: TextStyle(color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: verdeAmazonico,
             minimumSize: const Size(double.infinity, 50),
@@ -134,10 +203,13 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
           onPressed: () => _tomarFoto(0),
         ),
         const SizedBox(height: 10),
-        
+
         ElevatedButton.icon(
           icon: const Icon(Icons.credit_card, color: Colors.white),
-          label: const Text('Tomar foto de documento', style: TextStyle(color: Colors.white)),
+          label: const Text(
+            'Tomar foto de documento',
+            style: TextStyle(color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: verdeAmazonico,
             minimumSize: const Size(double.infinity, 50),
@@ -145,30 +217,38 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
           onPressed: () => _tomarFoto(1),
         ),
         const SizedBox(height: 10),
-        
+
         ElevatedButton.icon(
           icon: const Icon(Icons.card_membership, color: Colors.white),
-          label: const Text('Tomar foto de licencia', style: TextStyle(color: Colors.white)),
+          label: const Text(
+            'Tomar foto de licencia',
+            style: TextStyle(color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: verdeAmazonico,
             minimumSize: const Size(double.infinity, 50),
           ),
           onPressed: () => _tomarFoto(2),
         ),
-        
+
         // Vistas previas de las fotos
         if (fotoRostro != null) ...[
           const SizedBox(height: 10),
           const Text('Foto de rostro:'),
           Image.file(fotoRostro!, height: 100, width: 100, fit: BoxFit.cover),
         ],
-        
+
         if (fotoDocumento != null) ...[
           const SizedBox(height: 10),
           const Text('Foto de documento:'),
-          Image.file(fotoDocumento!, height: 100, width: 150, fit: BoxFit.cover),
+          Image.file(
+            fotoDocumento!,
+            height: 100,
+            width: 150,
+            fit: BoxFit.cover,
+          ),
         ],
-        
+
         if (fotoLicencia != null) ...[
           const SizedBox(height: 10),
           const Text('Foto de licencia:'),
@@ -180,7 +260,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
 
   Future<void> _tomarFoto(int tipo) async {
     final XFile? image = await picker.pickImage(source: ImageSource.camera);
-    
+
     if (image != null) {
       setState(() {
         switch (tipo) {
@@ -198,7 +278,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
     }
   }
 
-   InputDecoration _inputDecoration(String hint) {
+  InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
       filled: true,
@@ -219,16 +299,22 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
     if (_formKey.currentState!.validate()) {
       if (fotoRostro == null || fotoDocumento == null || fotoLicencia == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Debe tomar todas las fotos requeridas')));
+          const SnackBar(
+            content: Text('Debe tomar todas las fotos requeridas'),
+          ),
+        );
         return;
       }
-      
+
       // Aquí iría la lógica para registrar al conductor
-      print('Conductor registrado: ${nombresController.text} ${apellidosController.text}');
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registro exitoso')));
-      
+      print(
+        'Conductor registrado: ${nombresController.text} ${apellidosController.text}',
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Registro exitoso')));
+
       // Navegar a la pantalla principal
       Navigator.of(context).popUntil((route) => route.isFirst);
     }

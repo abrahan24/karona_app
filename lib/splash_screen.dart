@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'LoginWidget.dart'; // Asegúrate de importar tu widget
+import 'package:shared_preferences/shared_preferences.dart';
+import 'LoginWidget.dart';
+import 'Driver_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,11 +30,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginWidget()),
-      );
-    });
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isDriverLoggedIn') ?? false;
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => isLoggedIn ? const DriverDashboardScreen() : const LoginWidget(),
+      ),
+    );
   }
 
   @override
@@ -44,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF004D40), // Verde amazónico
+      backgroundColor: const Color(0xFF006d5b), // Verde amazónico
       body: Center(
         child: ScaleTransition(
           scale: _animation,

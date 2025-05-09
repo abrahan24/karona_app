@@ -49,5 +49,19 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		  <!-- Permiso para conexiones HTTP (necesario para OSRM) -->
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSAllowsArbitraryLoads</key>
+            <true/>
+        </dict>
+        
+        <!-- Si necesitas ubicación (opcional) -->
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>Necesitamos tu ubicación para mostrar tu posición en el mapa</string>
+        <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+        <string>Necesitamos tu ubicación para mostrar tu posición en el mapa</string>
+        <key>NSLocationAlwaysUsageDescription</key>
+        <string>Necesitamos tu ubicación para mostrar tu posición en el mapa</string>
 	</dict>
 </plist>

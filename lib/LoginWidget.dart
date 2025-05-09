@@ -1,8 +1,7 @@
-// ignore: file_names
-// ignore_for_file: file_names, duplicate_ignore
-
 import 'package:flutter/material.dart';
-import 'package:karona_app/TipoUsuarioScreen%20.dart';
+import 'package:karona_app/Driver_dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:karona_app/TipoUsuarioScreen.dart';
 
 class LoginWidget extends StatelessWidget {
   const LoginWidget({super.key});
@@ -11,6 +10,29 @@ class LoginWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     const Color verdeAmazonico = Color(0xFF006d5b);
     const Color cremaClaro = Color.fromARGB(255, 37, 37, 37);
+
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    Future<void> handleLogin() async {
+      // Validación básica (deberías añadir más validaciones)
+      if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor ingresa email y contraseña')),
+        );
+        return;
+      }
+
+      // Simulación de login exitoso
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isDriverLoggedIn', true);
+
+      // Navegar al dashboard del conductor
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DriverDashboardScreen()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: cremaClaro,
@@ -30,6 +52,8 @@ class LoginWidget extends StatelessWidget {
 
                 // Campo de email
                 TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -48,6 +72,7 @@ class LoginWidget extends StatelessWidget {
 
                 // Campo de contraseña
                 TextField(
+                  controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     filled: true,
@@ -76,9 +101,7 @@ class LoginWidget extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
-                      // Acción de login
-                    },
+                    onPressed: handleLogin,
                     child: const Text(
                       'Iniciar Sesión',
                       style: TextStyle(fontSize: 18, color: Colors.white),
