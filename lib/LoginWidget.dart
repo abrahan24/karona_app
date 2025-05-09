@@ -1,5 +1,8 @@
+// ignore: file_names
+// ignore_for_file: file_names, duplicate_ignore
+
 import 'package:flutter/material.dart';
-import 'registro_widget.dart'; // Asegúrate de crear este archivo
+import 'package:karona_app/TipoUsuarioScreen%20.dart';
 
 class LoginWidget extends StatelessWidget {
   const LoginWidget({super.key});
@@ -90,7 +93,7 @@ class LoginWidget extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RegistroWidget()),
+                      MaterialPageRoute(builder: (_) => const TipoUsuarioScreen()),
                     );
                   },
                   child: Text(
