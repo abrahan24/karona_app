@@ -28,12 +28,17 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
   List<LatLng> _polylineCoordinates = [];
   late AnimationController _animationController;
   double _animationValue = 0.0;
+  bool _isLoading = true;
+
+  // Configuración de Valhalla
+  final String valhallaUrl = 'http://localhost:8002/route';
 
   @override
   void initState() {
     super.initState();
-    _currentDriverPos = widget.driverLocation;
-    _currentClientPos = widget.clientLocation;
+    // Ubicaciones actualizadas con las coordenadas proporcionadas
+    _currentDriverPos = const LatLng(-11.043992, -68.775170); // Conductor
+    _currentClientPos = const LatLng(-11.039016, -68.771850); // Cliente
     _mapController = MapController();
 
     _animationController = AnimationController(
@@ -46,85 +51,128 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
         });
       });
 
-    _createPolyline();
+    _createValhallaPolyline().then((_) {
+      setState(() {
+        _isLoading = false;
+        _adjustMapToRoute();
+      });
+    });
     _animationController.forward();
   }
 
-  Future<void> _createPolyline() async {
+  Future<void> _createValhallaPolyline() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://router.project-osrm.org/route/v1/driving/'
-          '${widget.driverLocation.longitude},${widget.driverLocation.latitude};'
-          '${widget.destination.longitude},${widget.destination.latitude}?overview=full',
-        ),
+      final response = await http.post(
+        Uri.parse(valhallaUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "locations": [
+            {"lat": _currentDriverPos.latitude, "lon": _currentDriverPos.longitude},
+            {"lat": -11.032907, "lon": -68.775390} // Destino actualizado
+          ],
+          "costing": "motorcycle", // Modo de transporte ajustado
+          "directions_options": {"units": "km"},
+          "id": "valhalla_directions"
+        }),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final geometry = data['routes'][0]['geometry'];
-
+        final geometry = data['trip']['legs'][0]['shape'];
+        
         setState(() {
-          _polylineCoordinates = _decodePolyline(geometry);
+          _polylineCoordinates = _decodeValhallaPolyline(geometry);
         });
+      } else {
+        throw Exception('Error en la respuesta de Valhalla: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('Error al crear la ruta: $e');
-      // Ruta de emergencia (línea recta)
+      debugPrint('Error al crear la ruta con Valhalla: $e');
+      // Ruta de emergencia (línea recta entre conductor y destino)
       setState(() {
-        _polylineCoordinates = [widget.driverLocation, widget.destination];
+        _polylineCoordinates = [
+          _currentDriverPos,
+          const LatLng(-11.032907, -68.775390)
+        ];
       });
     }
   }
 
-  List<LatLng> _decodePolyline(String encoded) {
+  List<LatLng> _decodeValhallaPolyline(String encoded) {
     final List<LatLng> points = [];
-    int index = 0;
-    int lat = 0, lng = 0;
+    final coords = encoded.split(',');
 
-    while (index < encoded.length) {
-      int b, shift = 0, result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      points.add(LatLng(lat / 1e5, lng / 1e5));
+    for (int i = 0; i < coords.length; i += 2) {
+      if (i + 1 >= coords.length) break;
+      points.add(LatLng(
+        double.parse(coords[i + 1]),
+        double.parse(coords[i]),
+      ));
     }
     return points;
+  }
+
+  void _adjustMapToRoute() {
+    if (_polylineCoordinates.isEmpty) return;
+
+    final allPoints = [
+      _currentDriverPos,
+      _currentClientPos,
+      const LatLng(-11.032907, -68.775390), // Destino
+      ..._polylineCoordinates
+    ];
+
+    // Calcular límites del mapa
+    double minLat = allPoints[0].latitude;
+    double maxLat = allPoints[0].latitude;
+    double minLng = allPoints[0].longitude;
+    double maxLng = allPoints[0].longitude;
+
+    for (final point in allPoints) {
+      minLat = min(minLat, point.latitude);
+      maxLat = max(maxLat, point.latitude);
+      minLng = min(minLng, point.longitude);
+      maxLng = max(maxLng, point.longitude);
+    }
+
+    // Añadir margen adicional
+    const padding = 0.005;
+    minLat -= padding;
+    maxLat += padding;
+    minLng -= padding;
+    maxLng += padding;
+
+    // Calcular centro y zoom
+    final center = LatLng(
+      (minLat + maxLat) / 2,
+      (minLng + maxLng) / 2,
+    );
+
+    // Fórmula mejorada para calcular zoom
+    final latDiff = maxLat - minLat;
+    final lngDiff = maxLng - minLng;
+    final maxDiff = max(latDiff, lngDiff);
+    final zoom = (17 - log(maxDiff * 1000) / log(2)).clamp(14.0, 18.0);
+
+    _mapController.move(center, zoom);
   }
 
   void _updatePositions() {
     if (_polylineCoordinates.isEmpty) return;
 
+    // Animación del conductor
     int driverIndex = (_polylineCoordinates.length * _animationValue).toInt();
     driverIndex = driverIndex.clamp(0, _polylineCoordinates.length - 1);
     _currentDriverPos = _polylineCoordinates[driverIndex];
 
+    // Animación del cliente (comienza a moverse cuando la animación está al 50%)
     if (_animationValue < 0.5) {
-      _currentClientPos = widget.clientLocation;
+      _currentClientPos = const LatLng(-11.039016, -68.771850);
     } else {
       double clientProgress = (_animationValue - 0.5) * 2;
       _currentClientPos = LatLng(
-        widget.clientLocation.latitude +
-            (_currentDriverPos.latitude - widget.clientLocation.latitude) *
-                clientProgress,
-        widget.clientLocation.longitude +
-            (_currentDriverPos.longitude - widget.clientLocation.longitude) *
-                clientProgress,
+        -11.039016 + (_currentDriverPos.latitude - -11.039016) * clientProgress,
+        -68.771850 + (_currentDriverPos.longitude - -68.771850) * clientProgress,
       );
     }
 
@@ -173,26 +221,24 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _currentDriverPos,
+              initialCenter: const LatLng(-11.038, -68.773), // Centro inicial entre ubicaciones
               initialZoom: 15.0,
-              onMapReady: () {
-                debugPrint('Mapa cargado completamente');
-              },
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.karona.app',
               ),
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: _polylineCoordinates,
-                    color: const Color(0xFF006d5b),
-                    strokeWidth: 5.0,
-                  ),
-                ],
-              ),
+              if (_polylineCoordinates.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _polylineCoordinates,
+                      color: const Color(0xFF006d5b),
+                      strokeWidth: 5.0,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -221,7 +267,7 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
                   Marker(
                     width: 60.0,
                     height: 60.0,
-                    point: widget.destination,
+                    point: const LatLng(-11.032907, -68.775390),
                     child: const Icon(
                       Icons.flag,
                       color: Colors.red,
@@ -232,7 +278,11 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
-          // _buildRideInfoCard(),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+          _buildRideInfoCard(),
           _buildBottomControls(),
         ],
       ),
@@ -259,11 +309,11 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 8),
-              _buildInfoRow('Cliente:', 'Juan Pérez'),
-              _buildInfoRow('Teléfono:', '+591 70012345'),
-              _buildInfoRow('Distancia:', '2.5 km'),
-              _buildInfoRow('Tiempo estimado:', '8 min'),
-              _buildInfoRow('Tarifa estimada:', '\$15.00'),
+              _buildInfoRow('Conductor:', 'En camino'),
+              _buildInfoRow('Cliente:', 'Esperando en ubicación'),
+              _buildInfoRow('Destino:', 'Terminal de buses'),
+              _buildInfoRow('Distancia:', '1.2 km'),
+              _buildInfoRow('Tiempo estimado:', '5 min'),
             ],
           ),
         ),
