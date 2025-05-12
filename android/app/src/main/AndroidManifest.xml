@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Agrega este permiso -->
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
     
     <!-- Si necesitas ubicación (opcional) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>

@@ -27,7 +27,6 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   }
 
   Future<void> _loadDriverData() async {
-    // Simulación de carga de datos del conductor
     await Future.delayed(const Duration(seconds: 1));
     setState(() {
       _completedRides = 42;
@@ -37,7 +36,6 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   }
 
   void _simulateRequests() {
-    // Simulación de nuevas solicitudes (solo para demo)
     Future.delayed(const Duration(seconds: 30), () {
       if (mounted && _available) {
         setState(() {
@@ -49,61 +47,45 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     });
   }
 
-  // En el método que muestra la notificación de nueva carrera:
   void _showRideRequest() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Nueva solicitud de carrera'),
-            content: const Text(
-              'Hay un pasajero buscando conductor en tu zona.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Rechazar'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF006d5b),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _pendingRequests--;
-                    _hasNewRequest = false;
-                  });
-                  Navigator.pop(context);
-
-                  // Navegar a la pantalla de carrera
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => RideScreen(
-                            driverLocation: const LatLng(
-                              -17.7838,
-                              -63.180,
-                            ), // Ubicación inicial conductor
-                            clientLocation: const LatLng(
-                              -17.7865,
-                              -63.181,
-                            ), // Ubicación cliente
-                            destination: const LatLng(
-                              -17.7899,
-                              -63.195,
-                            ), // Destino
-                          ),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Aceptar',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Nueva solicitud de carrera'),
+        content: const Text('Hay un pasajero buscando conductor en tu zona.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Rechazar'),
           ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006d5b),
+            ),
+            onPressed: () {
+              setState(() {
+                _pendingRequests--;
+                _hasNewRequest = false;
+              });
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RideScreen(
+                    driverLocation: const LatLng(-17.7838, -63.180),
+                    clientLocation: const LatLng(-17.7865, -63.181),
+                    destination: const LatLng(-17.7899, -63.195),
+                  ),
+                ),
+              );
+            },
+            child: const Text(
+              'Aceptar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -115,6 +97,9 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isLargeScreen = screenHeight > 800;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Panel del Conductor'),
@@ -130,9 +115,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Tienes $_pendingRequests solicitudes pendientes',
-                  ),
+                  content: Text('Tienes $_pendingRequests solicitudes pendientes'),
                 ),
               );
             },
@@ -145,21 +128,20 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 Navigator.pushNamed(context, '/driver_profile');
               }
             },
-            itemBuilder:
-                (BuildContext context) => [
-                  const PopupMenuItem(
-                    value: 'profile',
-                    child: Text('Ver Perfil'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Text('Cerrar Sesión'),
-                  ),
-                ],
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Text('Ver Perfil'),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Text('Cerrar Sesión'),
+              ),
+            ],
           ),
         ],
       ),
-      body: _buildDashboardBody(),
+      body: _buildDashboardBody(isLargeScreen),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF006d5b),
         onPressed: () => _completeRide(),
@@ -168,46 +150,63 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     );
   }
 
-  Widget _buildDashboardBody() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildAvailabilityCard(),
-          const SizedBox(height: 20),
-          _buildStatsHeader(),
-          const SizedBox(height: 10),
-          _buildStatsGrid(),
-          const SizedBox(height: 20),
-          _buildRecentRidesHeader(),
-          const SizedBox(height: 10),
-          _buildRecentRidesList(),
-        ],
-      ),
+  Widget _buildDashboardBody(bool isLargeScreen) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: isLargeScreen ? 20 : 16,
+            vertical: 16,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildAvailabilityCard(isLargeScreen),
+                SizedBox(height: isLargeScreen ? 24 : 20),
+                _buildStatsHeader(),
+                SizedBox(height: isLargeScreen ? 16 : 10),
+                _buildStatsGrid(isLargeScreen),
+                SizedBox(height: isLargeScreen ? 24 : 20),
+                _buildRecentRidesHeader(),
+                SizedBox(height: isLargeScreen ? 16 : 10),
+                _buildRecentRidesList(isLargeScreen),
+                SizedBox(height: isLargeScreen ? 24 : 20), // Espacio adicional al final
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildAvailabilityCard() {
+  Widget _buildAvailabilityCard(bool isLargeScreen) {
     return Card(
       color: const Color.fromARGB(255, 50, 50, 50),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Estado Actual',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: isLargeScreen ? 20 : 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: isLargeScreen ? 16 : 10),
             SwitchListTile(
-              title: const Text(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
                 'Disponible para carreras',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                  fontSize: isLargeScreen ? 18 : 16,
+                  color: Colors.white,
+                ),
               ),
               value: _available,
               activeColor: const Color(0xFF006d5b),
@@ -230,53 +229,81 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(bool isLargeScreen) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 1.5,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
+      childAspectRatio: isLargeScreen ? 1.3 : 1.2, // Ajustado para evitar overflow
+      crossAxisSpacing: isLargeScreen ? 16 : 10,
+      mainAxisSpacing: isLargeScreen ? 16 : 10,
+      padding: EdgeInsets.zero,
       children: [
         _buildStatCard(
           'Carreras Realizadas',
           _completedRides.toString(),
           Icons.directions_car,
+          isLargeScreen,
         ),
         _buildStatCard(
           'Solicitudes Pendientes',
           _pendingRequests.toString(),
           Icons.access_time,
+          isLargeScreen,
         ),
-        _buildStatCard('Calificación', _rating.toStringAsFixed(1), Icons.star),
-        _buildStatCard('Ingresos Hoy', '\$125.50', Icons.attach_money),
+        _buildStatCard(
+          'Calificación',
+          _rating.toStringAsFixed(1),
+          Icons.star,
+          isLargeScreen,
+        ),
+        _buildStatCard(
+          'Ingresos Hoy',
+          '\$125.50',
+          Icons.attach_money,
+          isLargeScreen,
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    bool isLargeScreen,
+  ) {
     return Card(
       color: const Color.fromARGB(255, 50, 50, 50),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(isLargeScreen ? 12 : 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 30, color: const Color(0xFF006d5b)),
-            const SizedBox(height: 8),
+            Icon(
+              icon,
+              size: isLargeScreen ? 32 : 28,
+              color: const Color(0xFF006d5b),
+            ),
+            SizedBox(height: isLargeScreen ? 8 : 6),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 24,
+              style: TextStyle(
+                fontSize: isLargeScreen ? 22 : 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
+            SizedBox(height: isLargeScreen ? 6 : 4),
             Text(
               title,
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(
+                fontSize: isLargeScreen ? 14 : 12,
+                color: Colors.grey,
+              ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -295,34 +322,77 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     );
   }
 
-  Widget _buildRecentRidesList() {
+  Widget _buildRecentRidesList(bool isLargeScreen) {
     return Column(
       children: [
-        _buildRideItem('Juan Pérez', 'Av. Siempre Viva 742', '\$15.20'),
-        _buildRideItem('María García', 'Calle Falsa 123', '\$22.50'),
-        _buildRideItem('Carlos López', 'Boulevard Los Olivos', '\$18.75'),
+        _buildRideItem('Juan Pérez', 'Av. Siempre Viva 742', '\$15.20', isLargeScreen),
+        SizedBox(height: isLargeScreen ? 12 : 8),
+        _buildRideItem('María García', 'Calle Falsa 123', '\$22.50', isLargeScreen),
+        SizedBox(height: isLargeScreen ? 12 : 8),
+        _buildRideItem('Carlos López', 'Boulevard Los Olivos', '\$18.75', isLargeScreen),
       ],
     );
   }
 
-  Widget _buildRideItem(String name, String address, String price) {
+  Widget _buildRideItem(
+    String name,
+    String address,
+    String price,
+    bool isLargeScreen,
+  ) {
     return Card(
       color: const Color.fromARGB(255, 50, 50, 50),
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFF006d5b),
-          child: Text(name[0], style: const TextStyle(color: Colors.white)),
-        ),
-        title: Text(name, style: const TextStyle(color: Colors.white)),
-        subtitle: Text(address, style: const TextStyle(color: Colors.grey)),
-        trailing: Text(
-          price,
-          style: const TextStyle(
-            color: Colors.green,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+      child: Container(
+        padding: EdgeInsets.all(isLargeScreen ? 12 : 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: isLargeScreen ? 24 : 20,
+              backgroundColor: const Color(0xFF006d5b),
+              child: Text(
+                name[0],
+                style: TextStyle(
+                  fontSize: isLargeScreen ? 18 : 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            SizedBox(width: isLargeScreen ? 16 : 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 16 : 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    address,
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 14 : 12,
+                      color: Colors.grey,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: isLargeScreen ? 16 : 12),
+            Text(
+              price,
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: isLargeScreen ? 16 : 14,
+              ),
+            ),
+          ],
         ),
       ),
     );
