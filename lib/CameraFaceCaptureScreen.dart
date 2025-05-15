@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 
 class CameraFaceCaptureScreen extends StatefulWidget {
@@ -22,6 +23,8 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
   Face? _detectedFace;
   XFile? _capturedImage;
   String _instruction = 'Encuadre su rostro en el área naranja';
+  bool _blinkDetected = false;
+  bool _headTurnDetected = false;
 
   @override
   void initState() {
@@ -103,14 +106,42 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
       final faces = await _faceDetector!.processImage(inputImage);
 
       if (faces.isNotEmpty) {
+        final face = faces.first;
+
+        // Detectar parpadeo
+        final leftEye = face.leftEyeOpenProbability ?? 1.0;
+        final rightEye = face.rightEyeOpenProbability ?? 1.0;
+
+        if (!_blinkDetected && leftEye < 0.3 && rightEye < 0.3) {
+          _blinkDetected = true;
+        }
+
+        // Detectar movimiento de cabeza izquierda/derecha
+        final yaw = face.headEulerAngleY ?? 0.0;
+        if (!_headTurnDetected && yaw.abs() > 15) {
+          _headTurnDetected = true;
+        }
+
+        // Determinar mensaje
+        String instruction = '';
+        if (!_blinkDetected) {
+          instruction = '👁 Parpadea para continuar';
+        } else if (!_headTurnDetected) {
+          instruction = '↔️ Mueve la cabeza de lado';
+        } else {
+          instruction = '✅ Rostro real detectado - Puedes capturar';
+        }
+
         setState(() {
-          _detectedFace = faces.first;
-          _instruction = '✅ Rostro detectado - Pulse el botón para capturar';
+          _detectedFace = face;
+          _instruction = instruction;
         });
       } else {
         setState(() {
           _detectedFace = null;
           _instruction = 'Encuadre su rostro en el área naranja';
+          _blinkDetected = false;
+          _headTurnDetected = false;
         });
       }
     } catch (e) {
@@ -128,18 +159,66 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
 
     try {
       final image = await _cameraController.takePicture();
+
+      final imageBytes = await File(image.path).readAsBytes();
+      final decodedImage = img.decodeImage(imageBytes);
+
+      if (decodedImage == null) {
+        setState(() => _instruction = 'Error al procesar imagen');
+        return;
+      }
+
+      final faceRect = _detectedFace!.boundingBox;
+
+      // Margen para expandir el recorte
+      const int extraTop = 150;
+      const int extraBottom = 200;
+      const int extraSides = 50;
+
+      // Calcular límites seguros
+      final int left = (faceRect.left - extraSides).toInt().clamp(
+        0,
+        decodedImage.width,
+      );
+      final int top = (faceRect.top - extraTop).toInt().clamp(
+        0,
+        decodedImage.height,
+      );
+      final int right = (faceRect.right + extraSides).toInt().clamp(
+        0,
+        decodedImage.width,
+      );
+      final int bottom = (faceRect.bottom + extraBottom).toInt().clamp(
+        0,
+        decodedImage.height,
+      );
+
+      final int width = right - left;
+      final int height = bottom - top;
+
+      final cropped = img.copyCrop(
+        decodedImage,
+        x: left,
+        y: top,
+        width: width,
+        height: height,
+      );
+
+      // Guardar imagen recortada
+      final croppedPath = '${image.path}_recorte.jpg';
+      final croppedFile = File(croppedPath)
+        ..writeAsBytesSync(img.encodeJpg(cropped));
+
       setState(() {
-        _capturedImage = image;
-        _instruction = 'Foto tomada correctamente';
+        _capturedImage = XFile(croppedPath);
+        _instruction = '✅ Foto recortada correctamente';
       });
 
-      // Esperar 1 segundo antes de regresar para que el usuario vea la confirmación
-      await Future.delayed(Duration(seconds: 1));
-
+      await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      Navigator.pop(context, File(image.path));
+      Navigator.pop(context, File(croppedPath));
     } catch (e) {
-      setState(() => _instruction = 'Error al capturar imagen');
+      setState(() => _instruction = '❌ Error al capturar imagen');
     }
   }
 
@@ -185,7 +264,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
             painter: CircularHolePainter(
               center: Offset(
                 MediaQuery.of(context).size.width / 2,
-                MediaQuery.of(context).size.height / 2 ,
+                MediaQuery.of(context).size.height / 2,
               ),
               radius: 150,
             ),
@@ -251,8 +330,9 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: _detectedFace != null ? Colors.green : Colors.grey,
-        onPressed: _detectedFace != null ? _captureImage : null,
+        backgroundColor: (_detectedFace != null && _blinkDetected && _headTurnDetected) ? Colors.green : Colors.grey,
+        onPressed:
+            (_detectedFace != null && _blinkDetected && _headTurnDetected) ? _captureImage : null,
         child: Icon(Icons.camera, color: Colors.white),
       ),
     );

@@ -247,13 +247,46 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
           onPressed: () => _tomarFoto(2),
         ),
 
-        // Vistas previas de las fotos
-        if (fotoRostro != null)
-          _buildImagePreview('Foto de rostro:', fotoRostro!),
-        if (fotoDocumento != null)
-          _buildImagePreview('Foto de documento:', fotoDocumento!),
-        if (fotoLicencia != null)
-          _buildImagePreview('Foto de licencia:', fotoLicencia!),
+        if (fotoRostro != null || fotoDocumento != null || fotoLicencia != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              const Text(
+                'Vistas previas:',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 5),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    if (fotoRostro != null)
+                      _buildImagePreview('Rostro', fotoRostro!, () {
+                        setState(() {
+                          fotoRostro = null;
+                        });
+                      }),
+                    if (fotoDocumento != null)
+                      _buildImagePreview('Documento', fotoDocumento!, () {
+                        setState(() {
+                          fotoDocumento = null;
+                        });
+                      }),
+                    if (fotoLicencia != null)
+                      _buildImagePreview('Licencia', fotoLicencia!, () {
+                        setState(() {
+                          fotoLicencia = null;
+                        });
+                      }),
+                  ],
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -277,15 +310,82 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
     );
   }
 
-  Widget _buildImagePreview(String label, File image) {
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Text(label, style: const TextStyle(color: Colors.white)),
-        const SizedBox(height: 5),
-        Image.file(image, height: 300, width: 150, fit: BoxFit.cover),
-      ],
+  Widget _buildImagePreview(String label, File image, VoidCallback onDelete) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white)),
+          const SizedBox(height: 5),
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  image,
+                  height: 150,
+                  width: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: () {
+                    _confirmDelete(context: context, onConfirm: onDelete);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _confirmDelete({
+    required BuildContext context,
+    required VoidCallback onConfirm,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmar eliminación'),
+            content: const Text(
+              '¿Estás seguro de que deseas eliminar esta foto?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Eliminar',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      onConfirm();
+    }
   }
 
   Future<void> _tomarFoto(int tipo) async {
