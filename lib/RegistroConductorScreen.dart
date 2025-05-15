@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:karona_app/CameraCardCaptureScreen.dart';
 import 'package:karona_app/CameraFaceCaptureScreen.dart';
 
 class RegistroConductorScreen extends StatefulWidget {
@@ -17,32 +18,21 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   final Color verdeAmazonico = const Color(0xFF006d5b);
   final Color cremaClaro = Color.fromARGB(255, 37, 37, 37);
 
-  // Controladores
-  final TextEditingController nombresController = TextEditingController();
-  final TextEditingController apellidosController = TextEditingController();
-  String generoSeleccionado = 'Masculino';
-  final TextEditingController direccionController = TextEditingController();
-  final TextEditingController correoController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController celularController = TextEditingController();
-  final TextEditingController licenciaController = TextEditingController();
-  final TextEditingController categoriaLicenciaController =
-      TextEditingController();
-  final TextEditingController experienciaController = TextEditingController();
-
   // Imágenes
   File? fotoRostro;
-  File? fotoDocumento;
-  File? fotoLicencia;
+  File? fotoDocumentoAnverso;
+  File? fotoDocumentoReverso;
+  File? fotoLicenciaAnverso;
+  File? fotoLicenciaReverso;
+  bool puedeContinuar = false;
+
   final ImagePicker picker = ImagePicker();
 
   // OCR
   final TextRecognizer _textRecognizer = TextRecognizer();
   bool _isProcessingImage = false;
+  // ignore: unused_field
   String _ultimoTextoReconocido = '';
-
-  // Lista de géneros
-  final List<String> generos = ['Masculino', 'Femenino', 'Otro'];
 
   @override
   void dispose() {
@@ -67,105 +57,6 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // Campos de información personal
-                    TextFormField(
-                      controller: nombresController,
-                      decoration: _inputDecoration('Nombres'),
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese sus nombres' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: apellidosController,
-                      decoration: _inputDecoration('Apellidos'),
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese sus apellidos' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    DropdownButtonFormField<String>(
-                      value: generoSeleccionado,
-                      decoration: _inputDecoration('Género'),
-                      items:
-                          generos.map((genero) {
-                            return DropdownMenuItem(
-                              value: genero,
-                              child: Text(genero),
-                            );
-                          }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          generoSeleccionado = value!;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: direccionController,
-                      decoration: _inputDecoration('Dirección'),
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese su dirección' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: correoController,
-                      decoration: _inputDecoration('Correo electrónico'),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value!.isEmpty) return 'Ingrese su correo';
-                        if (!value.contains('@')) return 'Correo no válido';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: celularController,
-                      decoration: _inputDecoration('Celular'),
-                      keyboardType: TextInputType.phone,
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese su celular' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Campos específicos de conductor
-                    TextFormField(
-                      controller: licenciaController,
-                      decoration: _inputDecoration('Número de licencia'),
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese su licencia' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: categoriaLicenciaController,
-                      decoration: _inputDecoration('Categoría de licencia'),
-                      validator:
-                          (value) =>
-                              value!.isEmpty ? 'Ingrese la categoría' : null,
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextFormField(
-                      controller: experienciaController,
-                      decoration: _inputDecoration('Años de experiencia'),
-                      keyboardType: TextInputType.number,
-                      validator:
-                          (value) =>
-                              value!.isEmpty
-                                  ? 'Ingrese años de experiencia'
-                                  : null,
-                    ),
-                    const SizedBox(height: 20),
-
                     // Sección de imágenes con OCR
                     _buildImageSection(),
 
@@ -217,10 +108,12 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Botones para fotos con OCR
+        // Botón de rostro con vista previa incluida
         _buildPhotoButton(
           icon: Icons.camera_alt,
           label: 'Tomar foto de rostro',
+          foto: fotoRostro,
+          esDocumento: false,
           onPressed: () async {
             final foto = await Navigator.push(
               context,
@@ -234,59 +127,26 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
             }
           },
         ),
+        const SizedBox(height: 20),
 
+        // Botón de documento
         _buildPhotoButton(
           icon: Icons.credit_card,
           label: 'Tomar foto de documento',
+          foto: fotoDocumentoAnverso,
+          esDocumento: true,
           onPressed: () => _tomarFoto(1),
         ),
+        const SizedBox(height: 20),
 
+        // Botón de licencia
         _buildPhotoButton(
           icon: Icons.card_membership,
           label: 'Tomar foto de licencia',
+          foto: fotoLicenciaAnverso,
+          esDocumento: true,
           onPressed: () => _tomarFoto(2),
         ),
-
-        if (fotoRostro != null || fotoDocumento != null || fotoLicencia != null)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              const Text(
-                'Vistas previas:',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 5),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    if (fotoRostro != null)
-                      _buildImagePreview('Rostro', fotoRostro!, () {
-                        setState(() {
-                          fotoRostro = null;
-                        });
-                      }),
-                    if (fotoDocumento != null)
-                      _buildImagePreview('Documento', fotoDocumento!, () {
-                        setState(() {
-                          fotoDocumento = null;
-                        });
-                      }),
-                    if (fotoLicencia != null)
-                      _buildImagePreview('Licencia', fotoLicencia!, () {
-                        setState(() {
-                          fotoLicencia = null;
-                        });
-                      }),
-                  ],
-                ),
-              ),
-            ],
-          ),
       ],
     );
   }
@@ -294,22 +154,59 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   Widget _buildPhotoButton({
     required IconData icon,
     required String label,
+    required File? foto,
+    required bool esDocumento,
     required VoidCallback onPressed,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: ElevatedButton.icon(
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: verdeAmazonico,
-          minimumSize: const Size(double.infinity, 50),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: verdeAmazonico,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onPressed: onPressed,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(label, style: const TextStyle(color: Colors.white)),
+                  if (foto != null) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.check_circle, color: Colors.green),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        onPressed: onPressed,
-      ),
+        if (foto != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  foto,
+                  width: esDocumento ? 224 : 144,
+                  height: esDocumento ? 144 : 200,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
+  // ignore: unused_element
   Widget _buildImagePreview(String label, File image, VoidCallback onDelete) {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
@@ -389,96 +286,78 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   }
 
   Future<void> _tomarFoto(int tipo) async {
-    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+    setState(() => _isProcessingImage = true);
 
-    if (image != null) {
-      setState(() => _isProcessingImage = true);
+    try {
+      File? file;
 
-      try {
-        final file = File(image.path);
-        final inputImage = InputImage.fromFile(file);
-        final recognizedText = await _textRecognizer.processImage(inputImage);
-
-        setState(() {
-          _ultimoTextoReconocido = recognizedText.text;
-          switch (tipo) {
-            case 0: // Foto de rostro
-              fotoRostro = file;
-              break;
-            case 1: // Foto de documento
-              fotoDocumento = file;
-              _procesarDocumento(recognizedText);
-              break;
-            case 2: // Foto de licencia
-              fotoLicencia = file;
-              _procesarLicencia(recognizedText);
-              break;
-          }
-        });
-
-        _mostrarTextoReconocido(recognizedText.text);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al procesar imagen: ${e.toString()}')),
+      if (tipo == 1 || tipo == 2) {
+        // Abrir la cámara de documentos/licencia
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CameraCardCaptureScreen(),
+          ),
         );
-      } finally {
-        setState(() => _isProcessingImage = false);
+
+        if (result != null && result is File) {
+          file = result;
+        } else {
+          setState(() => _isProcessingImage = false);
+          return; // Se canceló la foto
+        }
+      } else {
+        // Foto de rostro desde cámara directa
+        final XFile? image = await picker.pickImage(source: ImageSource.camera);
+        if (image != null) {
+          file = File(image.path);
+        } else {
+          setState(() => _isProcessingImage = false);
+          return;
+        }
       }
+
+      if (file != null) {
+        if (tipo == 1 || tipo == 2) {
+          // Procesar OCR
+          final inputImage = InputImage.fromFile(file);
+          final recognizedText = await _textRecognizer.processImage(inputImage);
+
+          setState(() {
+            _ultimoTextoReconocido = recognizedText.text;
+
+            if (tipo == 1) {
+              fotoDocumentoAnverso = file;
+            } else {
+              fotoLicenciaAnverso = file;
+            }
+          });
+
+          _mostrarTextoReconocido(recognizedText.text);
+        } else if (tipo == 0) {
+          setState(() {
+            fotoRostro = file;
+          });
+        }
+
+        _verificarCompletitud();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al procesar imagen: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isProcessingImage = false);
     }
   }
 
-  void _procesarDocumento(RecognizedText recognizedText) {
-    final textoCompleto = recognizedText.text;
-
-    // Buscar nombres (patrón simple)
-    final nombreRegex = RegExp(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)');
-    final nombreMatch = nombreRegex.firstMatch(textoCompleto);
-    if (nombreMatch != null && nombresController.text.isEmpty) {
-      nombresController.text = nombreMatch.group(1)!;
-    }
-
-    // Buscar apellidos (similar a nombres)
-    final apellidoRegex = RegExp(r'([A-Z][a-z]+\s[A-Z][a-z]+)$');
-    final apellidoMatch = apellidoRegex.firstMatch(textoCompleto);
-    if (apellidoMatch != null && apellidosController.text.isEmpty) {
-      apellidosController.text = apellidoMatch.group(1)!;
-    }
-
-    // Buscar número de documento (ejemplo para DNI)
-    final docRegex = RegExp(r'[0-9]{8}');
-    final docMatches = docRegex.allMatches(textoCompleto);
-    if (docMatches.isNotEmpty) {
-      // Usar el número más largo encontrado (podría ser el DNI)
-      final doc = docMatches
-          .map((m) => m.group(0))
-          .reduce((a, b) => a!.length > b!.length ? a : b);
-      // Puedes asignarlo a algún campo si es necesario
-    }
-  }
-
-  void _procesarLicencia(RecognizedText recognizedText) {
-    final textoCompleto = recognizedText.text;
-
-    // Buscar número de licencia (formato común)
-    final licenciaRegex = RegExp(r'[A-Z0-9]{7,15}');
-    final licenciaMatches = licenciaRegex.allMatches(textoCompleto);
-    if (licenciaMatches.isNotEmpty) {
-      licenciaController.text = licenciaMatches.first.group(0)!;
-    }
-
-    // Buscar categoría (ej. A, B, C, etc.)
-    final categoriaRegex = RegExp(r'Categor[ií]a[:]?\s*([A-Z])');
-    final catMatch = categoriaRegex.firstMatch(textoCompleto);
-    if (catMatch != null) {
-      categoriaLicenciaController.text = catMatch.group(1)!;
-    }
-
-    // Buscar fecha de emisión (ejemplo)
-    final fechaRegex = RegExp(r'(\d{2}[/-]\d{2}[/-]\d{4})');
-    final fechaMatch = fechaRegex.firstMatch(textoCompleto);
-    if (fechaMatch != null) {
-      // Podrías procesar la fecha si es necesario
-    }
+  void _verificarCompletitud() {
+    puedeContinuar =
+        fotoRostro != null &&
+        fotoDocumentoAnverso != null &&
+        fotoDocumentoReverso != null &&
+        fotoLicenciaAnverso != null &&
+        fotoLicenciaReverso != null;
   }
 
   void _mostrarTextoReconocido(String texto) {
@@ -498,26 +377,26 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: verdeAmazonico, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-    );
-  }
+  // InputDecoration _inputDecoration(String hint) {
+  //   return InputDecoration(
+  //     hintText: hint,
+  //     filled: true,
+  //     fillColor: Colors.white,
+  //     border: OutlineInputBorder(
+  //       borderRadius: BorderRadius.circular(12),
+  //       borderSide: BorderSide.none,
+  //     ),
+  //     focusedBorder: OutlineInputBorder(
+  //       borderRadius: BorderRadius.circular(12),
+  //       borderSide: BorderSide(color: verdeAmazonico, width: 2),
+  //     ),
+  //     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+  //   );
+  // }
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      if (fotoRostro == null || fotoDocumento == null || fotoLicencia == null) {
+      if (fotoRostro == null || fotoDocumentoAnverso == null || fotoLicenciaAnverso == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Debe tomar todas las fotos requeridas'),
@@ -527,16 +406,6 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
       }
 
       // Aquí iría la lógica para registrar al conductor
-      print('''
-        Conductor registrado:
-        Nombre: ${nombresController.text} ${apellidosController.text}
-        Licencia: ${licenciaController.text} (${categoriaLicenciaController.text})
-        Documentos: 
-          - Rostro: ${fotoRostro!.path}
-          - Documento: ${fotoDocumento!.path}
-          - Licencia: ${fotoLicencia!.path}
-        Texto reconocido: $_ultimoTextoReconocido
-      ''');
 
       ScaffoldMessenger.of(
         context,

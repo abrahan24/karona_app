@@ -244,7 +244,19 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_isCameraInitialized) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              Text('Configurando cámara...', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(

@@ -2,21 +2,25 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 
 class CameraCardCaptureScreen extends StatefulWidget {
   const CameraCardCaptureScreen({super.key});
 
   @override
-  _CameraCardCaptureScreenState createState() => _CameraCardCaptureScreenState();
+  _CameraCardCaptureScreenState createState() =>
+      _CameraCardCaptureScreenState();
 }
 
 class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
   final Color verdeAmazonico = const Color(0xFF006d5b);
+
   late CameraController _controladorCamara;
   bool _camaraInicializada = false;
   XFile? _imagenCapturada;
-  String _instruccion = 'Incline su celular horizontalmente y alinee el documento';
+  String _instruccion =
+      'Incline su celular horizontalmente y alinee el documento';
 
   @override
   void initState() {
@@ -41,7 +45,9 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
     try {
       await _controladorCamara.initialize();
       // Forzar orientación horizontal
-      await _controladorCamara.lockCaptureOrientation(DeviceOrientation.landscapeLeft);
+      await _controladorCamara.lockCaptureOrientation(
+        DeviceOrientation.landscapeLeft,
+      );
     } catch (e) {
       _mostrarError('Error al inicializar la cámara: $e');
       return;
@@ -53,24 +59,76 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
   Future<void> _capturarImagen() async {
     try {
       final imagen = await _controladorCamara.takePicture();
+      final bytes = await File(imagen.path).readAsBytes();
+      img.Image? original = img.decodeImage(bytes);
+
+      if (original == null) {
+        setState(() => _instruccion = 'Error al procesar imagen');
+        return;
+      }
+
+      // Obtener la orientación real del sensor
+      final orientation = _controladorCamara.description.sensorOrientation;
+
+      // Determinar rotación necesaria (depende de tu preview)
+      int rotationAngle = 0;
+      if (orientation == 90) {
+        rotationAngle = -90;
+      } else if (orientation == 270) {
+        rotationAngle = 90;
+      }
+
+      original = img.copyRotate(original, angle: rotationAngle);
+
+      // 📐 Dimensiones del marco visible (el rectángulo naranja)
+      final screenWidth =
+          MediaQuery.of(context).size.height; // porque está girado
+      final screenHeight = MediaQuery.of(context).size.width;
+
+      final marcoWidth = screenWidth * 0.8;
+      final marcoHeight = screenHeight * 0.5;
+
+      final marcoLeft = (screenWidth - marcoWidth) / 2;
+      final marcoTop = (screenHeight - marcoHeight) / 2;
+
+      // 🧮 Convertimos coordenadas de pantalla a imagen
+      final scaleX = original.width / screenWidth;
+      final scaleY = original.height / screenHeight;
+
+      final cropX = (marcoLeft * scaleX).toInt();
+      final cropY = (marcoTop * scaleY).toInt();
+      final cropWidth = (marcoWidth * scaleX).toInt();
+      final cropHeight = (marcoHeight * scaleY).toInt();
+
+      final recorte = img.copyCrop(
+        original,
+        x: cropX,
+        y: cropY,
+        width: cropWidth,
+        height: cropHeight,
+      );
+
+      final rutaRecorte = '${imagen.path}_recortada.jpg';
+      final archivoRecorte = File(rutaRecorte)
+        ..writeAsBytesSync(img.encodeJpg(recorte));
+
       setState(() {
-        _imagenCapturada = imagen;
-        _instruccion = 'Documento capturado correctamente';
+        _imagenCapturada = XFile(rutaRecorte);
+        _instruccion = '✅ Documento recortado correctamente';
       });
 
-      // Esperar 1 segundo antes de regresar
       await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      Navigator.pop(context, File(imagen.path));
+      Navigator.pop(context, archivoRecorte);
     } catch (e) {
-      setState(() => _instruccion = 'Error al capturar imagen');
+      setState(() => _instruccion = '❌ Error al capturar imagen');
     }
   }
 
   void _mostrarError(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('⚠️ $mensaje')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('⚠️ $mensaje')));
   }
 
   @override
@@ -90,7 +148,10 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
-              Text('Configurando cámara...', style: TextStyle(color: Colors.white)),
+              Text(
+                'Configurando cámara...',
+                style: TextStyle(color: Colors.white),
+              ),
             ],
           ),
         ),
@@ -107,10 +168,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
       body: Stack(
         children: [
           // Vista de la cámara rotada para horizontalidad
-          RotatedBox(
-            quarterTurns: 1,
-            child: CameraPreview(_controladorCamara),
-          ),
+          RotatedBox(quarterTurns: 1, child: CameraPreview(_controladorCamara)),
 
           // Marco rectangular para el documento
           Center(
@@ -141,7 +199,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
 
           // Instrucciones
           Positioned(
-            bottom: 160,
+            bottom: 120,
             left: 20,
             right: 20,
             child: Container(
@@ -205,14 +263,20 @@ class _PintorMarcoDocumento extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = Colors.black.withOpacity(0.5)
+          ..style = PaintingStyle.fill;
 
-    final pantallaCompleta = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final pantallaCompleta =
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
     final areaDocumento = Path()..addRect(rect);
 
-    final combinado = Path.combine(PathOperation.difference, pantallaCompleta, areaDocumento);
+    final combinado = Path.combine(
+      PathOperation.difference,
+      pantallaCompleta,
+      areaDocumento,
+    );
     canvas.drawPath(combinado, paint);
   }
 
