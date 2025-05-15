@@ -20,7 +20,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
   FaceDetector? _faceDetector;
   Face? _detectedFace;
   XFile? _capturedImage;
-  String _instruction = 'Buscando rostro...';
+  String _instruction = 'Encuadre su rostro en el área verde';
 
   @override
   void initState() {
@@ -48,12 +48,15 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
       return;
     }
 
-      _faceDetector = FaceDetector(
+    _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
         enableContours: true,
-        enableLandmarks: true,  // Mejorar la precisión de los puntos de referencia faciales
-        enableClassification: true,  // Mejorar la clasificación
-        performanceMode: FaceDetectorMode.accurate,  // Cambiar a "accurate" para mejorar la detección
+        enableLandmarks:
+            true, // Mejorar la precisión de los puntos de referencia faciales
+        enableClassification: true, // Mejorar la clasificación
+        performanceMode:
+            FaceDetectorMode
+                .accurate, // Cambiar a "accurate" para mejorar la detección
       ),
     );
 
@@ -62,7 +65,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     setState(() => _isCameraInitialized = true);
   }
 
-    void _processCameraImage(CameraImage image) async {
+  void _processCameraImage(CameraImage image) async {
     if (_isDetecting) return;
 
     _isDetecting = true;
@@ -82,17 +85,13 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     final imageRotationRaw = camera.sensorOrientation;
     final inputImageFormatRaw = image.format.raw;
 
-    final imageRotation = InputImageRotationValue.fromRawValue(imageRotationRaw) ??
+    final imageRotation =
+        InputImageRotationValue.fromRawValue(imageRotationRaw) ??
         InputImageRotation.rotation0deg;
     final inputImageFormat = InputImageFormat.nv21;
 
-    // Depuración: Verifica los valores de imagen y sus metadatos
-    print('Image Size: $imageSize');
-    print('Image Rotation: $imageRotation');
-    print('Input Image Format: $inputImageFormat');
-
     if (inputImageFormat == null) {
-      _showError('Formato u orientación no compatibles');
+      setState(() => _instruction = 'Error: Formato no compatible');
       _isDetecting = false;
       return;
     }
@@ -107,34 +106,29 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     final inputImage = InputImage.fromBytes(bytes: bytes, metadata: metadata);
 
     try {
-      // Depuración: Verifica si el detector está funcionando
       final faces = await _faceDetector!.processImage(inputImage);
-
-      print('Faces detected: ${faces.length}'); // Mostrar cuántas caras detecta
 
       if (faces.isNotEmpty) {
         setState(() {
           _detectedFace = faces.first;
+          _instruction = '✅ Rostro detectado - Pulse el botón para capturar';
         });
-        _showMessage('Rostro detectado');
       } else {
         setState(() {
           _detectedFace = null;
+          _instruction = 'Encuadre su rostro en el área verde';
         });
-        _showMessage('No se detectaron rostros.');
       }
     } catch (e) {
-      // Si ocurre un error, se muestra con el mensaje de error
-      _showError('Error al procesar la imagen: $e');
+      setState(() => _instruction = 'Error al procesar la imagen');
     } finally {
       _isDetecting = false;
     }
   }
 
-
   Future<void> _captureImage() async {
     if (_detectedFace == null) {
-      _showError("No se detectó un rostro válido");
+      setState(() => _instruction = '❌ No se detectó un rostro válido');
       return;
     }
 
@@ -145,11 +139,13 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
         _instruction = 'Foto tomada correctamente';
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('✅ Foto capturada')));
+      // Esperar 1 segundo antes de regresar para que el usuario vea la confirmación
+      await Future.delayed(Duration(seconds: 1));
+
+      if (!mounted) return;
+      Navigator.pop(context, File(image.path));
     } catch (e) {
-      _showError('Error al capturar imagen: $e');
+      setState(() => _instruction = 'Error al capturar imagen');
     }
   }
 
@@ -179,41 +175,83 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Captura de Rostro')),
+      appBar: AppBar(
+        title: Text('Captura de Rostro'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // Vista de la cámara (fondo completo)
           CameraPreview(_cameraController),
-          Center(
-            child: Container(
-              width: 250,
-              height: 350,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.greenAccent, width: 2),
-                borderRadius: BorderRadius.circular(20),
+
+          // Fondo oscuro exterior con agujero para el área de captura
+          Stack(
+            children: [
+              // Capa semitransparente (70%)
+              Container(color: Colors.black.withOpacity(0.5)),
+
+              // Recorte para el área transparente (agujero)
+              Center(
+                child: Container(
+                  width: 250,
+                  height: 350,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color:
+                          _detectedFace != null ? Colors.green : Colors.orange,
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.transparent, // Fondo transparente
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
+
+          // Resto del código permanece igual...
           Positioned(
             bottom: 160,
             left: 20,
             right: 20,
-            child: Text(
-              _instruction,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                backgroundColor: Colors.black45,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            child: Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color:
+                      _detectedFace != null
+                          ? Colors.greenAccent
+                          : Colors.orangeAccent,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                _instruction,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
+
           if (_capturedImage != null)
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
-                child: Image.file(File(_capturedImage!.path), height: 120),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Image.file(File(_capturedImage!.path), height: 120),
+                ),
               ),
             ),
         ],
@@ -221,7 +259,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: _detectedFace != null ? Colors.green : Colors.grey,
         onPressed: _detectedFace != null ? _captureImage : null,
-        child: Icon(Icons.camera),
+        child: Icon(Icons.camera, color: Colors.white),
       ),
     );
   }
