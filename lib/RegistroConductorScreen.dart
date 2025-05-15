@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:karona_app/CameraFaceCaptureScreen.dart';
 
 class RegistroConductorScreen extends StatefulWidget {
   const RegistroConductorScreen({super.key});
 
   @override
-  State<RegistroConductorScreen> createState() => _RegistroConductorScreenState();
+  State<RegistroConductorScreen> createState() =>
+      _RegistroConductorScreenState();
 }
 
 class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
@@ -24,7 +26,8 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController celularController = TextEditingController();
   final TextEditingController licenciaController = TextEditingController();
-  final TextEditingController categoriaLicenciaController = TextEditingController();
+  final TextEditingController categoriaLicenciaController =
+      TextEditingController();
   final TextEditingController experienciaController = TextEditingController();
 
   // Imágenes
@@ -68,26 +71,31 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                     TextFormField(
                       controller: nombresController,
                       decoration: _inputDecoration('Nombres'),
-                      validator: (value) => value!.isEmpty ? 'Ingrese sus nombres' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese sus nombres' : null,
                     ),
                     const SizedBox(height: 15),
 
                     TextFormField(
                       controller: apellidosController,
                       decoration: _inputDecoration('Apellidos'),
-                      validator: (value) => value!.isEmpty ? 'Ingrese sus apellidos' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese sus apellidos' : null,
                     ),
                     const SizedBox(height: 15),
 
                     DropdownButtonFormField<String>(
                       value: generoSeleccionado,
                       decoration: _inputDecoration('Género'),
-                      items: generos.map((genero) {
-                        return DropdownMenuItem(
-                          value: genero,
-                          child: Text(genero),
-                        );
-                      }).toList(),
+                      items:
+                          generos.map((genero) {
+                            return DropdownMenuItem(
+                              value: genero,
+                              child: Text(genero),
+                            );
+                          }).toList(),
                       onChanged: (value) {
                         setState(() {
                           generoSeleccionado = value!;
@@ -99,7 +107,9 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                     TextFormField(
                       controller: direccionController,
                       decoration: _inputDecoration('Dirección'),
-                      validator: (value) => value!.isEmpty ? 'Ingrese su dirección' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese su dirección' : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -119,7 +129,9 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                       controller: celularController,
                       decoration: _inputDecoration('Celular'),
                       keyboardType: TextInputType.phone,
-                      validator: (value) => value!.isEmpty ? 'Ingrese su celular' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese su celular' : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -127,14 +139,18 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                     TextFormField(
                       controller: licenciaController,
                       decoration: _inputDecoration('Número de licencia'),
-                      validator: (value) => value!.isEmpty ? 'Ingrese su licencia' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese su licencia' : null,
                     ),
                     const SizedBox(height: 15),
 
                     TextFormField(
                       controller: categoriaLicenciaController,
                       decoration: _inputDecoration('Categoría de licencia'),
-                      validator: (value) => value!.isEmpty ? 'Ingrese la categoría' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty ? 'Ingrese la categoría' : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -142,7 +158,11 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                       controller: experienciaController,
                       decoration: _inputDecoration('Años de experiencia'),
                       keyboardType: TextInputType.number,
-                      validator: (value) => value!.isEmpty ? 'Ingrese años de experiencia' : null,
+                      validator:
+                          (value) =>
+                              value!.isEmpty
+                                  ? 'Ingrese años de experiencia'
+                                  : null,
                     ),
                     const SizedBox(height: 20),
 
@@ -176,9 +196,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
           if (_isProcessingImage)
             Container(
               color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
@@ -203,7 +221,18 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         _buildPhotoButton(
           icon: Icons.camera_alt,
           label: 'Tomar foto de rostro',
-          onPressed: () => _tomarFoto(0),
+          onPressed: () async {
+            final foto = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => CameraFaceCaptureScreen()),
+            );
+
+            if (foto != null) {
+              setState(() {
+                fotoRostro = foto;
+              });
+            }
+          },
         ),
 
         _buildPhotoButton(
@@ -219,14 +248,21 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         ),
 
         // Vistas previas de las fotos
-        if (fotoRostro != null) _buildImagePreview('Foto de rostro:', fotoRostro!),
-        if (fotoDocumento != null) _buildImagePreview('Foto de documento:', fotoDocumento!),
-        if (fotoLicencia != null) _buildImagePreview('Foto de licencia:', fotoLicencia!),
+        if (fotoRostro != null)
+          _buildImagePreview('Foto de rostro:', fotoRostro!),
+        if (fotoDocumento != null)
+          _buildImagePreview('Foto de documento:', fotoDocumento!),
+        if (fotoLicencia != null)
+          _buildImagePreview('Foto de licencia:', fotoLicencia!),
       ],
     );
   }
 
-  Widget _buildPhotoButton({required IconData icon, required String label, required VoidCallback onPressed}) {
+  Widget _buildPhotoButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: ElevatedButton.icon(
@@ -257,12 +293,12 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
 
     if (image != null) {
       setState(() => _isProcessingImage = true);
-      
+
       try {
         final file = File(image.path);
         final inputImage = InputImage.fromFile(file);
         final recognizedText = await _textRecognizer.processImage(inputImage);
-        
+
         setState(() {
           _ultimoTextoReconocido = recognizedText.text;
           switch (tipo) {
@@ -279,7 +315,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
               break;
           }
         });
-        
+
         _mostrarTextoReconocido(recognizedText.text);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -293,7 +329,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
 
   void _procesarDocumento(RecognizedText recognizedText) {
     final textoCompleto = recognizedText.text;
-    
+
     // Buscar nombres (patrón simple)
     final nombreRegex = RegExp(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)');
     final nombreMatch = nombreRegex.firstMatch(textoCompleto);
@@ -313,21 +349,23 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
     final docMatches = docRegex.allMatches(textoCompleto);
     if (docMatches.isNotEmpty) {
       // Usar el número más largo encontrado (podría ser el DNI)
-      final doc = docMatches.map((m) => m.group(0)).reduce((a, b) => a!.length > b!.length ? a : b);
+      final doc = docMatches
+          .map((m) => m.group(0))
+          .reduce((a, b) => a!.length > b!.length ? a : b);
       // Puedes asignarlo a algún campo si es necesario
     }
   }
 
   void _procesarLicencia(RecognizedText recognizedText) {
     final textoCompleto = recognizedText.text;
-    
+
     // Buscar número de licencia (formato común)
     final licenciaRegex = RegExp(r'[A-Z0-9]{7,15}');
     final licenciaMatches = licenciaRegex.allMatches(textoCompleto);
     if (licenciaMatches.isNotEmpty) {
       licenciaController.text = licenciaMatches.first.group(0)!;
     }
-    
+
     // Buscar categoría (ej. A, B, C, etc.)
     final categoriaRegex = RegExp(r'Categor[ií]a[:]?\s*([A-Z])');
     final catMatch = categoriaRegex.firstMatch(textoCompleto);
@@ -346,18 +384,17 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
   void _mostrarTextoReconocido(String texto) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Texto reconocido'),
-        content: SingleChildScrollView(
-          child: Text(texto),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Texto reconocido'),
+            content: SingleChildScrollView(child: Text(texto)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -401,9 +438,9 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         Texto reconocido: $_ultimoTextoReconocido
       ''');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registro exitoso')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Registro exitoso')));
 
       // Navegar a la pantalla principal
       Navigator.of(context).popUntil((route) => route.isFirst);

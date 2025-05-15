@@ -9,7 +9,7 @@ class RideScreen extends StatefulWidget {
   final LatLng driverLocation;
   final LatLng clientLocation;
   final LatLng destination;
-
+  
   const RideScreen({
     super.key,
     required this.driverLocation,
@@ -22,7 +22,7 @@ class RideScreen extends StatefulWidget {
 }
 
 class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
-  late MapController _mapController;
+  late final MapController _mapController;
   late LatLng _currentDriverPos;
   late LatLng _currentClientPos;
   List<LatLng> _polylineCoordinates = [];
@@ -30,16 +30,14 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
   double _animationValue = 0.0;
   bool _isLoading = true;
 
-  // Configuración de Valhalla
-  final String valhallaUrl = 'http://localhost:8002/route';
+  final String valhallaUrl = 'http://192.168.1.25:8002/route';
 
   @override
   void initState() {
     super.initState();
-    // Ubicaciones actualizadas con las coordenadas proporcionadas
-    _currentDriverPos = const LatLng(-11.043992, -68.775170); // Conductor
-    _currentClientPos = const LatLng(-11.039016, -68.771850); // Cliente
     _mapController = MapController();
+    _currentDriverPos = widget.driverLocation;
+    _currentClientPos = widget.clientLocation;
 
     _animationController = AnimationController(
       vsync: this,
@@ -56,127 +54,142 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
         _isLoading = false;
         _adjustMapToRoute();
       });
+      _animationController.forward();
     });
-    _animationController.forward();
   }
+  
+double? _totalDistanceKm = 0.0;
+double? _totalDurationMin = 0.0;
 
-  Future<void> _createValhallaPolyline() async {
-    try {
-      final response = await http.post(
-        Uri.parse(valhallaUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          "locations": [
-            {"lat": _currentDriverPos.latitude, "lon": _currentDriverPos.longitude},
-            {"lat": -11.032907, "lon": -68.775390} // Destino actualizado
-          ],
-          "costing": "motorcycle", // Modo de transporte ajustado
-          "directions_options": {"units": "km"},
-          "id": "valhalla_directions"
-        }),
-      );
+Future<void> _createValhallaPolyline() async {
+  try {
+    final response = await http.post(
+      Uri.parse(valhallaUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        "locations": [
+          {
+            "lat": widget.driverLocation.latitude,
+            "lon": widget.driverLocation.longitude
+          },
+          {
+            "lat": widget.destination.latitude,
+            "lon": widget.destination.longitude
+          }
+        ],
+        "costing": "motorcycle",
+        "directions_options": {"units": "km"},
+        "id": "valhalla_directions"
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final geometry = data['trip']['legs'][0]['shape'];
-        
-        setState(() {
-          _polylineCoordinates = _decodeValhallaPolyline(geometry);
-        });
-      } else {
-        throw Exception('Error en la respuesta de Valhalla: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('Error al crear la ruta con Valhalla: $e');
-      // Ruta de emergencia (línea recta entre conductor y destino)
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final geometry = data['trip']['legs'][0]['shape'];
+      final double distance = data['trip']['summary']['length']; // en km
+      final double duration = data['trip']['summary']['time'] / 60.0; // en minutos
+
       setState(() {
-        _polylineCoordinates = [
-          _currentDriverPos,
-          const LatLng(-11.032907, -68.775390)
-        ];
+        _polylineCoordinates = _decodeValhallaPolyline(geometry);
+        _totalDistanceKm = distance;
+        _totalDurationMin = duration;
       });
+    } else {
+      throw Exception('Error en la respuesta de Valhalla: ${response.statusCode}');
     }
+  } catch (e) {
+    debugPrint('Error al crear la ruta con Valhalla: $e');
+    setState(() {
+      _polylineCoordinates = [widget.driverLocation, widget.destination];
+    });
+  }
+}
+
+ List<LatLng> _decodeValhallaPolyline(String encoded) {
+  List<LatLng> poly = [];
+  int index = 0, len = encoded.length;
+  int lat = 0, lng = 0;
+
+  while (index < len) {
+    int b, shift = 0, result = 0;
+
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1F) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int deltaLat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1F) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int deltaLng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    lng += deltaLng;
+
+    poly.add(LatLng(lat / 1e6, lng / 1e6));
   }
 
-  List<LatLng> _decodeValhallaPolyline(String encoded) {
-    final List<LatLng> points = [];
-    final coords = encoded.split(',');
+  return poly;
+}
 
-    for (int i = 0; i < coords.length; i += 2) {
-      if (i + 1 >= coords.length) break;
-      points.add(LatLng(
-        double.parse(coords[i + 1]),
-        double.parse(coords[i]),
-      ));
+  void _updatePositions() {
+    if (_polylineCoordinates.isEmpty) return;
+
+    int driverIndex = (_polylineCoordinates.length * _animationValue).toInt();
+    driverIndex = driverIndex.clamp(0, _polylineCoordinates.length - 1);
+    _currentDriverPos = _polylineCoordinates[driverIndex];
+
+    if (_animationValue < 0.5) {
+      _currentClientPos = widget.clientLocation;
+    } else {
+      double clientProgress = (_animationValue - 0.5) * 2;
+      _currentClientPos = LatLng(
+        widget.clientLocation.latitude +
+            (_currentDriverPos.latitude - widget.clientLocation.latitude) *
+                clientProgress,
+        widget.clientLocation.longitude +
+            (_currentDriverPos.longitude - widget.clientLocation.longitude) *
+                clientProgress,
+      );
     }
-    return points;
+
+    _mapController.move(_currentDriverPos, _mapController.camera.zoom);
   }
 
   void _adjustMapToRoute() {
-    if (_polylineCoordinates.isEmpty) return;
+    final points = [..._polylineCoordinates];
+    if (points.isEmpty) return;
 
-    final allPoints = [
-      _currentDriverPos,
-      _currentClientPos,
-      const LatLng(-11.032907, -68.775390), // Destino
-      ..._polylineCoordinates
-    ];
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
 
-    // Calcular límites del mapa
-    double minLat = allPoints[0].latitude;
-    double maxLat = allPoints[0].latitude;
-    double minLng = allPoints[0].longitude;
-    double maxLng = allPoints[0].longitude;
-
-    for (final point in allPoints) {
-      minLat = min(minLat, point.latitude);
-      maxLat = max(maxLat, point.latitude);
-      minLng = min(minLng, point.longitude);
-      maxLng = max(maxLng, point.longitude);
+    for (final p in points) {
+      minLat = min(minLat, p.latitude);
+      maxLat = max(maxLat, p.latitude);
+      minLng = min(minLng, p.longitude);
+      maxLng = max(maxLng, p.longitude);
     }
 
-    // Añadir margen adicional
     const padding = 0.005;
-    minLat -= padding;
-    maxLat += padding;
-    minLng -= padding;
-    maxLng += padding;
-
-    // Calcular centro y zoom
     final center = LatLng(
       (minLat + maxLat) / 2,
       (minLng + maxLng) / 2,
     );
 
-    // Fórmula mejorada para calcular zoom
     final latDiff = maxLat - minLat;
     final lngDiff = maxLng - minLng;
     final maxDiff = max(latDiff, lngDiff);
-    final zoom = (17 - log(maxDiff * 1000) / log(2)).clamp(14.0, 18.0);
+    final zoom = (17 - log(maxDiff * 1000) / log(2)).clamp(13.0, 18.0);
 
     _mapController.move(center, zoom);
-  }
-
-  void _updatePositions() {
-    if (_polylineCoordinates.isEmpty) return;
-
-    // Animación del conductor
-    int driverIndex = (_polylineCoordinates.length * _animationValue).toInt();
-    driverIndex = driverIndex.clamp(0, _polylineCoordinates.length - 1);
-    _currentDriverPos = _polylineCoordinates[driverIndex];
-
-    // Animación del cliente (comienza a moverse cuando la animación está al 50%)
-    if (_animationValue < 0.5) {
-      _currentClientPos = const LatLng(-11.039016, -68.771850);
-    } else {
-      double clientProgress = (_animationValue - 0.5) * 2;
-      _currentClientPos = LatLng(
-        -11.039016 + (_currentDriverPos.latitude - -11.039016) * clientProgress,
-        -68.771850 + (_currentDriverPos.longitude - -68.771850) * clientProgress,
-      );
-    }
-
-    _mapController.move(_currentDriverPos, _mapController.camera.zoom);
   }
 
   double _getBearing() {
@@ -192,15 +205,15 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
   }
 
   double _calculateBearing(LatLng begin, LatLng end) {
-    double lat1 = begin.latitude * (pi / 180);
-    double lon1 = begin.longitude * (pi / 180);
-    double lat2 = end.latitude * (pi / 180);
-    double lon2 = end.longitude * (pi / 180);
+    double lat1 = begin.latitude * pi / 180;
+    double lon1 = begin.longitude * pi / 180;
+    double lat2 = end.latitude * pi / 180;
+    double lon2 = end.longitude * pi / 180;
 
     double y = sin(lon2 - lon1) * cos(lat2);
-    double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon2 - lon1);
-    double bearing = atan2(y, x) * (180 / pi);
-    return (bearing + 360) % 360;
+    double x = cos(lat1) * sin(lat2) -
+        sin(lat1) * cos(lat2) * cos(lon2 - lon1);
+    return (atan2(y, x) * 180 / pi + 360) % 360;
   }
 
   @override
@@ -221,13 +234,14 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: const LatLng(-11.038, -68.773), // Centro inicial entre ubicaciones
-              initialZoom: 15.0,
+              initialCenter: _currentDriverPos,
+              initialZoom: 15,
+              interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.karona.app',
+                userAgentPackageName: 'com.example.app',
               ),
               if (_polylineCoordinates.isNotEmpty)
                 PolylineLayer(
@@ -235,53 +249,39 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
                     Polyline(
                       points: _polylineCoordinates,
                       color: const Color(0xFF006d5b),
-                      strokeWidth: 5.0,
+                      strokeWidth: 5,
                     ),
                   ],
                 ),
               MarkerLayer(
                 markers: [
                   Marker(
-                    width: 60.0,
-                    height: 60.0,
+                    width: 60,
+                    height: 60,
                     point: _currentDriverPos,
                     child: Transform.rotate(
                       angle: _getBearing() * (pi / 180),
-                      child: const Icon(
-                        Icons.directions_bike,
-                        color: Colors.green,
-                        size: 36,
-                      ),
+                      child: const Icon(Icons.directions_bike, size: 36, color: Colors.green),
                     ),
                   ),
                   Marker(
-                    width: 60.0,
-                    height: 60.0,
+                    width: 60,
+                    height: 60,
                     point: _currentClientPos,
-                    child: const Icon(
-                      Icons.person_pin_circle,
-                      color: Colors.blue,
-                      size: 36,
-                    ),
+                    child: const Icon(Icons.person_pin_circle, size: 36, color: Colors.blue),
                   ),
                   Marker(
-                    width: 60.0,
-                    height: 60.0,
-                    point: const LatLng(-11.032907, -68.775390),
-                    child: const Icon(
-                      Icons.flag,
-                      color: Colors.red,
-                      size: 36,
-                    ),
+                    width: 60,
+                    height: 60,
+                    point: widget.destination,
+                    child: const Icon(Icons.flag, size: 36, color: Colors.red),
                   ),
                 ],
               ),
             ],
           ),
           if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
+            const Center(child: CircularProgressIndicator()),
           _buildRideInfoCard(),
           _buildBottomControls(),
         ],
@@ -301,38 +301,16 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Detalles de la carrera',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildInfoRow('Conductor:', 'En camino'),
-              _buildInfoRow('Cliente:', 'Esperando en ubicación'),
-              _buildInfoRow('Destino:', 'Terminal de buses'),
-              _buildInfoRow('Distancia:', '1.2 km'),
-              _buildInfoRow('Tiempo estimado:', '5 min'),
+              Text('Detalles de la carrera', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('Conductor: En camino'),
+              Text('Cliente: Esperando en ubicación'),
+              Text('Destino: Terminal de buses'),
+              Text('Distancia: ${_totalDistanceKm?.toStringAsFixed(2) ?? '--'} km'),
+              Text('Tiempo estimado: ${_totalDurationMin?.toStringAsFixed(0) ?? '--'} min')
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(width: 8),
-          Text(value),
-        ],
       ),
     );
   }
@@ -354,14 +332,9 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
                     backgroundColor: Colors.red,
                     minimumSize: const Size(double.infinity, 50),
                   ),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  label: const Text(
-                    'Cancelar Carrera',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  icon: const Icon(Icons.close,color: Colors.white,),
+                  label: const Text('Cancelar Carrera',style: TextStyle(color: Colors.white),),
+                  onPressed: () => Navigator.pop(context),
                 ),
               if (_animationValue >= 0.8)
                 ElevatedButton.icon(
@@ -369,11 +342,8 @@ class _RideScreenState extends State<RideScreen> with TickerProviderStateMixin {
                     backgroundColor: const Color(0xFF006d5b),
                     minimumSize: const Size(double.infinity, 50),
                   ),
-                  icon: const Icon(Icons.check, color: Colors.white),
-                  label: const Text(
-                    'Finalizar Carrera',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  icon: const Icon(Icons.check,color: Colors.white,),
+                  label: const Text('Finalizar Carrera',style: TextStyle(color: Colors.white),),
                   onPressed: () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(

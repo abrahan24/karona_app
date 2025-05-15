@@ -36,7 +36,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   }
 
   void _simulateRequests() {
-    Future.delayed(const Duration(seconds: 30), () {
+    Future.delayed(const Duration(seconds: 10), () {
       if (mounted && _available) {
         setState(() {
           _pendingRequests++;
@@ -72,9 +72,9 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => RideScreen(
-                    driverLocation: const LatLng(-17.7838, -63.180),
-                    clientLocation: const LatLng(-17.7865, -63.181),
-                    destination: const LatLng(-17.7899, -63.195),
+                    driverLocation: const LatLng(-11.043992, -68.775170),
+                    clientLocation: const LatLng(-11.039016, -68.771850),
+                    destination: const LatLng(-11.032907, -68.775390),
                   ),
                 ),
               );
@@ -151,35 +151,27 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   }
 
   Widget _buildDashboardBody(bool isLargeScreen) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: isLargeScreen ? 20 : 16,
-            vertical: 16,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildAvailabilityCard(isLargeScreen),
-                SizedBox(height: isLargeScreen ? 24 : 20),
-                _buildStatsHeader(),
-                SizedBox(height: isLargeScreen ? 16 : 10),
-                _buildStatsGrid(isLargeScreen),
-                SizedBox(height: isLargeScreen ? 24 : 20),
-                _buildRecentRidesHeader(),
-                SizedBox(height: isLargeScreen ? 16 : 10),
-                _buildRecentRidesList(isLargeScreen),
-                SizedBox(height: isLargeScreen ? 24 : 20), // Espacio adicional al final
-              ],
-            ),
-          ),
-        );
-      },
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isLargeScreen ? 20 : 16,
+          vertical: 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildAvailabilityCard(isLargeScreen),
+            SizedBox(height: isLargeScreen ? 24 : 20),
+            _buildStatsHeader(),
+            SizedBox(height: isLargeScreen ? 16 : 10),
+            _buildStatsGrid(isLargeScreen),
+            SizedBox(height: isLargeScreen ? 24 : 20),
+            _buildRecentRidesHeader(),
+            SizedBox(height: isLargeScreen ? 16 : 10),
+            _buildRecentRidesList(isLargeScreen),
+          ],
+        ),
+      ),
     );
   }
 
@@ -189,6 +181,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
       child: Padding(
         padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
         child: Column(
+          mainAxisSize: MainAxisSize.min, // IMPORTANTE: Evita overflow
           children: [
             Text(
               'Estado Actual',
@@ -234,30 +227,30 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: isLargeScreen ? 1.3 : 1.2, // Ajustado para evitar overflow
+      childAspectRatio: 1.1, // Ajustado para evitar overflow
       crossAxisSpacing: isLargeScreen ? 16 : 10,
       mainAxisSpacing: isLargeScreen ? 16 : 10,
       padding: EdgeInsets.zero,
       children: [
-        _buildStatCard(
+        _buildCompactStatCard(
           'Carreras Realizadas',
           _completedRides.toString(),
           Icons.directions_car,
           isLargeScreen,
         ),
-        _buildStatCard(
+        _buildCompactStatCard(
           'Solicitudes Pendientes',
           _pendingRequests.toString(),
           Icons.access_time,
           isLargeScreen,
         ),
-        _buildStatCard(
+        _buildCompactStatCard(
           'Calificación',
           _rating.toStringAsFixed(1),
           Icons.star,
           isLargeScreen,
         ),
-        _buildStatCard(
+        _buildCompactStatCard(
           'Ingresos Hoy',
           '\$125.50',
           Icons.attach_money,
@@ -267,7 +260,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(
+  Widget _buildCompactStatCard(
     String title,
     String value,
     IconData icon,
@@ -275,30 +268,34 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   ) {
     return Card(
       color: const Color.fromARGB(255, 50, 50, 50),
-      child: Padding(
-        padding: EdgeInsets.all(isLargeScreen ? 12 : 10),
+      child: Container(
+        padding: EdgeInsets.all(isLargeScreen ? 8 : 6),
+        constraints: BoxConstraints(
+          minHeight: 0, // Permite que la tarjeta se encoja si es necesario
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min, // IMPORTANTE: Evita overflow
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: isLargeScreen ? 32 : 28,
+              size: isLargeScreen ? 28 : 24,
               color: const Color(0xFF006d5b),
             ),
-            SizedBox(height: isLargeScreen ? 8 : 6),
+            SizedBox(height: isLargeScreen ? 4 : 2),
             Text(
               value,
               style: TextStyle(
-                fontSize: isLargeScreen ? 22 : 20,
+                fontSize: isLargeScreen ? 20 : 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            SizedBox(height: isLargeScreen ? 6 : 4),
+            SizedBox(height: isLargeScreen ? 4 : 2),
             Text(
               title,
               style: TextStyle(
-                fontSize: isLargeScreen ? 14 : 12,
+                fontSize: isLargeScreen ? 12 : 10,
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -324,17 +321,18 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
 
   Widget _buildRecentRidesList(bool isLargeScreen) {
     return Column(
+      mainAxisSize: MainAxisSize.min, // IMPORTANTE: Evita overflow
       children: [
-        _buildRideItem('Juan Pérez', 'Av. Siempre Viva 742', '\$15.20', isLargeScreen),
-        SizedBox(height: isLargeScreen ? 12 : 8),
-        _buildRideItem('María García', 'Calle Falsa 123', '\$22.50', isLargeScreen),
-        SizedBox(height: isLargeScreen ? 12 : 8),
-        _buildRideItem('Carlos López', 'Boulevard Los Olivos', '\$18.75', isLargeScreen),
+        _buildCompactRideItem('Juan Pérez', 'Av. Siempre Viva 742', '\$15.20', isLargeScreen),
+        SizedBox(height: isLargeScreen ? 8 : 6),
+        _buildCompactRideItem('María García', 'Calle Falsa 123', '\$22.50', isLargeScreen),
+        SizedBox(height: isLargeScreen ? 8 : 6),
+        _buildCompactRideItem('Carlos López', 'Boulevard Los Olivos', '\$18.75', isLargeScreen),
       ],
     );
   }
 
-  Widget _buildRideItem(
+  Widget _buildCompactRideItem(
     String name,
     String address,
     String price,
@@ -343,38 +341,40 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
     return Card(
       color: const Color.fromARGB(255, 50, 50, 50),
       child: Container(
-        padding: EdgeInsets.all(isLargeScreen ? 12 : 10),
+        padding: EdgeInsets.all(isLargeScreen ? 10 : 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             CircleAvatar(
-              radius: isLargeScreen ? 24 : 20,
+              radius: isLargeScreen ? 20 : 16,
               backgroundColor: const Color(0xFF006d5b),
               child: Text(
                 name[0],
                 style: TextStyle(
-                  fontSize: isLargeScreen ? 18 : 16,
+                  fontSize: isLargeScreen ? 16 : 14,
                   color: Colors.white,
                 ),
               ),
             ),
-            SizedBox(width: isLargeScreen ? 16 : 12),
+            SizedBox(width: isLargeScreen ? 12 : 8),
             Expanded(
               child: Column(
+                mainAxisSize: MainAxisSize.min, // IMPORTANTE: Evita overflow
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     name,
                     style: TextStyle(
-                      fontSize: isLargeScreen ? 16 : 14,
+                      fontSize: isLargeScreen ? 14 : 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: 2),
                   Text(
                     address,
                     style: TextStyle(
-                      fontSize: isLargeScreen ? 14 : 12,
+                      fontSize: isLargeScreen ? 12 : 10,
                       color: Colors.grey,
                     ),
                     maxLines: 2,
@@ -383,13 +383,13 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 ],
               ),
             ),
-            SizedBox(width: isLargeScreen ? 16 : 12),
+            SizedBox(width: isLargeScreen ? 12 : 8),
             Text(
               price,
               style: TextStyle(
                 color: Colors.green,
                 fontWeight: FontWeight.bold,
-                fontSize: isLargeScreen ? 16 : 14,
+                fontSize: isLargeScreen ? 14 : 12,
               ),
             ),
           ],
