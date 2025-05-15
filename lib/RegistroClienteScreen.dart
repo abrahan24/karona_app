@@ -1,9 +1,8 @@
-// ignore: file_names
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'CameraCardCaptureScreen.dart';
 
-// Formulario para Cliente
 class RegistroClienteScreen extends StatefulWidget {
   const RegistroClienteScreen({super.key});
 
@@ -14,31 +13,21 @@ class RegistroClienteScreen extends StatefulWidget {
 class _RegistroClienteScreenState extends State<RegistroClienteScreen> {
   final _formKey = GlobalKey<FormState>();
   final Color verdeAmazonico = const Color(0xFF006d5b);
-  final Color cremaClaro = Color.fromARGB(255, 37, 37, 37);
-  
-  // Controladores
-  final TextEditingController nombresController = TextEditingController();
-  final TextEditingController apellidosController = TextEditingController();
-  String generoSeleccionado = 'Masculino';
-  final TextEditingController direccionController = TextEditingController();
-  final TextEditingController correoController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController celularController = TextEditingController();
-  
-  // Imágenes
+  final Color cremaClaro = const Color.fromARGB(255, 37, 37, 37);
+
   File? fotoRostro;
-  File? fotoDocumento;
+  File? fotoAnverso;
+  File? fotoReverso;
+  bool puedeContinuar = false;
+
   final ImagePicker picker = ImagePicker();
-  
-  // Lista de géneros
-  final List<String> generos = ['Masculino', 'Femenino', 'Otro'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: cremaClaro,
       appBar: AppBar(
-        title: const Text('Registro de Cliente'),
+        title: const Text('Verificación de Identidad'),
         backgroundColor: verdeAmazonico,
       ),
       body: Padding(
@@ -48,97 +37,41 @@ class _RegistroClienteScreenState extends State<RegistroClienteScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // Campos del formulario
-                TextFormField(
-                  controller: nombresController,
-                  decoration: _inputDecoration('Nombres'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese sus nombres' : null,
-                ),
-                const SizedBox(height: 15),
-                
-                TextFormField(
-                  controller: apellidosController,
-                  decoration: _inputDecoration('Apellidos'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese sus apellidos' : null,
-                ),
-                const SizedBox(height: 15),
-                
-                DropdownButtonFormField<String>(
-                  value: generoSeleccionado,
-                  decoration: _inputDecoration('Género'),
-                  items: generos.map((genero) {
-                    return DropdownMenuItem(
-                      value: genero,
-                      child: Text(genero),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      generoSeleccionado = value!;
-                    });
-                  },
-                ),
-                const SizedBox(height: 15),
-                
-                TextFormField(
-                  controller: direccionController,
-                  decoration: _inputDecoration('Dirección'),
-                  validator: (value) => value!.isEmpty ? 'Ingrese su dirección' : null,
-                ),
-                const SizedBox(height: 15),
-                
-                TextFormField(
-                  controller: correoController,
-                  decoration: _inputDecoration('Correo electrónico'),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value!.isEmpty) return 'Ingrese su correo';
-                    if (!value.contains('@')) return 'Correo no válido';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 15),
-                
-                // TextFormField(
-                //   controller: passwordController,
-                //   obscureText: true,
-                //   decoration: _inputDecoration('Contraseña'),
-                //   validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
-                // ),
-                // const SizedBox(height: 15),
-                
-                TextFormField(
-                  controller: celularController,
-                  decoration: _inputDecoration('Celular'),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value!.isEmpty ? 'Ingrese su celular' : null,
-                ),
-                const SizedBox(height: 15),
-
-                TextFormField(
-                  controller: celularController,
-                  decoration: _inputDecoration('Celular de Referencia'),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value!.isEmpty ? 'Ingrese su celular de referencia' : null,
+                _buildBotonFoto(
+                  label: 'Foto de rostro',
+                  icon: Icons.face,
+                  foto: fotoRostro,
+                  esDocumento: false,
+                  onPressed: () => _tomarFoto(0),
                 ),
                 const SizedBox(height: 20),
-                
-                // Sección de imágenes
-                _buildImageSection(),
-                
+                _buildBotonFoto(
+                  label: 'Cédula de Identidad (Anverso)',
+                  icon: Icons.credit_card,
+                  foto: fotoAnverso,
+                  esDocumento: true,
+                  onPressed: () => _tomarFoto(1),
+                ),
+                const SizedBox(height: 20),
+                _buildBotonFoto(
+                  label: 'Cédula de Identidad (Reverso)',
+                  icon: Icons.credit_card_outlined,
+                  foto: fotoReverso,
+                  esDocumento: true,
+                  onPressed: () => _tomarFoto(2),
+                ),
                 const SizedBox(height: 30),
-                
-                // Botón de registro
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
+                AnimatedOpacity(
+                  opacity: puedeContinuar ? 1.0 : 0.5,
+                  duration: const Duration(milliseconds: 500),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: verdeAmazonico,
+                      backgroundColor: puedeContinuar ? verdeAmazonico : Colors.grey,
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16),
                     ),
-                    onPressed: _submitForm,
+                    onPressed: puedeContinuar ? _submitForm : null,
                     child: const Text(
-                      'Registrarme',
+                      'Siguiente',
                       style: TextStyle(color: Colors.white, fontSize: 18),
                     ),
                   ),
@@ -151,99 +84,96 @@ class _RegistroClienteScreenState extends State<RegistroClienteScreen> {
     );
   }
 
-  Widget _buildImageSection() {
+  Widget _buildBotonFoto({
+    required String label,
+    required IconData icon,
+    required File? foto,
+    required bool esDocumento,
+    required VoidCallback onPressed,
+  }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Documentación requerida:',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: verdeAmazonico,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              onPressed: onPressed,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(label, style: const TextStyle(color: Colors.white)),
+                  if (foto != null) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.check_circle, color: Colors.green),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        
-        ElevatedButton.icon(
-          icon: const Icon(Icons.camera_alt, color: Colors.white),
-          label: const Text('Tomar foto de rostro', style: TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: verdeAmazonico,
-            minimumSize: const Size(double.infinity, 50),
+        if (foto != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  foto,
+                  width: esDocumento ? 224 : 144,
+                  height: 144,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
           ),
-          onPressed: () => _tomarFoto(true),
-        ),
-        const SizedBox(height: 10),
-        
-        ElevatedButton.icon(
-          icon: const Icon(Icons.credit_card, color: Colors.white),
-          label: const Text('Tomar foto de documento', style: TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: verdeAmazonico,
-            minimumSize: const Size(double.infinity, 50),
-          ),
-          onPressed: () => _tomarFoto(false),
-        ),
-        
-        if (fotoRostro != null) ...[
-          const SizedBox(height: 10),
-          const Text('Foto de rostro:'),
-          Image.file(fotoRostro!, height: 100, width: 100, fit: BoxFit.cover),
-        ],
-        
-        if (fotoDocumento != null) ...[
-          const SizedBox(height: 10),
-          const Text('Foto de documento:'),
-          Image.file(fotoDocumento!, height: 100, width: 150, fit: BoxFit.cover),
-        ],
       ],
     );
   }
 
-   InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: verdeAmazonico, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-    );
+  Future<void> _tomarFoto(int tipoFoto) async {
+    if (tipoFoto == 0) {
+      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+      if (image != null) {
+        setState(() {
+          fotoRostro = File(image.path);
+          _verificarCompletitud();
+        });
+      }
+    } else {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CameraCardCaptureScreen(),
+        ),
+      );
+
+      if (result != null && result is File) {
+        setState(() {
+          if (tipoFoto == 1) {
+            fotoAnverso = result;
+          } else if (tipoFoto == 2) {
+            fotoReverso = result;
+          }
+          _verificarCompletitud();
+        });
+      }
+    }
   }
 
-  Future<void> _tomarFoto(bool esRostro) async {
-    final XFile? image = await picker.pickImage(source: ImageSource.camera);
-    
-    if (image != null) {
-      setState(() {
-        if (esRostro) {
-          fotoRostro = File(image.path);
-        } else {
-          fotoDocumento = File(image.path);
-        }
-      });
-    }
+  void _verificarCompletitud() {
+    puedeContinuar = fotoRostro != null && fotoAnverso != null && fotoReverso != null;
   }
 
   void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      if (fotoRostro == null || fotoDocumento == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Debe tomar ambas fotos para continuar')));
-        return;
-      }
-      
-      // Aquí iría la lógica para registrar al cliente
-      print('Cliente registrado: ${nombresController.text} ${apellidosController.text}');
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registro exitoso')));
-      
-      // Navegar a la pantalla principal
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Documentación verificada')),
+    );
   }
 }
