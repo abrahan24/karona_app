@@ -178,7 +178,6 @@ Future<void> _createValhallaPolyline() async {
       maxLng = max(maxLng, p.longitude);
     }
 
-    const padding = 0.005;
     final center = LatLng(
       (minLat + maxLat) / 2,
       (minLng + maxLng) / 2,

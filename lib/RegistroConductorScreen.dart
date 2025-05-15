@@ -283,7 +283,7 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         const SizedBox(height: 10),
         Text(label, style: const TextStyle(color: Colors.white)),
         const SizedBox(height: 5),
-        Image.file(image, height: 100, width: 150, fit: BoxFit.cover),
+        Image.file(image, height: 300, width: 150, fit: BoxFit.cover),
       ],
     );
   }

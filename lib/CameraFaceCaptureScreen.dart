@@ -14,13 +14,14 @@ class CameraFaceCaptureScreen extends StatefulWidget {
 }
 
 class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
+  final Color verdeAmazonico = const Color(0xFF006d5b);
   late CameraController _cameraController;
   bool _isCameraInitialized = false;
   bool _isDetecting = false;
   FaceDetector? _faceDetector;
   Face? _detectedFace;
   XFile? _capturedImage;
-  String _instruction = 'Encuadre su rostro en el área verde';
+  String _instruction = 'Encuadre su rostro en el área naranja';
 
   @override
   void initState() {
@@ -83,18 +84,11 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     final camera = _cameraController.description;
 
     final imageRotationRaw = camera.sensorOrientation;
-    final inputImageFormatRaw = image.format.raw;
 
     final imageRotation =
         InputImageRotationValue.fromRawValue(imageRotationRaw) ??
         InputImageRotation.rotation0deg;
     final inputImageFormat = InputImageFormat.nv21;
-
-    if (inputImageFormat == null) {
-      setState(() => _instruction = 'Error: Formato no compatible');
-      _isDetecting = false;
-      return;
-    }
 
     final metadata = InputImageMetadata(
       size: imageSize,
@@ -116,7 +110,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
       } else {
         setState(() {
           _detectedFace = null;
-          _instruction = 'Encuadre su rostro en el área verde';
+          _instruction = 'Encuadre su rostro en el área naranja';
         });
       }
     } catch (e) {
@@ -155,11 +149,11 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     ).showSnackBar(SnackBar(content: Text('⚠️ $message')));
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
-    );
-  }
+  // void _showMessage(String message) {
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(content: Text(message), backgroundColor: Colors.green),
+  //   );
+  // }
 
   @override
   void dispose() {
@@ -177,7 +171,7 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Captura de Rostro'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: verdeAmazonico,
         elevation: 0,
       ),
       extendBodyBehindAppBar: true,
@@ -186,29 +180,29 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
           // Vista de la cámara (fondo completo)
           CameraPreview(_cameraController),
 
-          // Fondo oscuro exterior con agujero para el área de captura
-          Stack(
-            children: [
-              // Capa semitransparente (70%)
-              Container(color: Colors.black.withOpacity(0.5)),
+          CustomPaint(
+            size: Size.infinite,
+            painter: CircularHolePainter(
+              center: Offset(
+                MediaQuery.of(context).size.width / 2,
+                MediaQuery.of(context).size.height / 2 ,
+              ),
+              radius: 150,
+            ),
+          ),
 
-              // Recorte para el área transparente (agujero)
-              Center(
-                child: Container(
-                  width: 250,
-                  height: 350,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color:
-                          _detectedFace != null ? Colors.green : Colors.orange,
-                      width: 3,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    color: Colors.transparent, // Fondo transparente
-                  ),
+          Center(
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _detectedFace != null ? Colors.green : Colors.orange,
+                  width: 5,
                 ),
               ),
-            ],
+            ),
           ),
 
           // Resto del código permanece igual...
@@ -263,4 +257,30 @@ class _CameraFaceCaptureScreenState extends State<CameraFaceCaptureScreen> {
       ),
     );
   }
+}
+
+class CircularHolePainter extends CustomPainter {
+  final Offset center;
+  final double radius;
+
+  CircularHolePainter({required this.center, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = Colors.black.withOpacity(0.5)
+          ..style = PaintingStyle.fill;
+
+    final fullScreen =
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final hole =
+        Path()..addOval(Rect.fromCircle(center: center, radius: radius));
+
+    final combined = Path.combine(PathOperation.difference, fullScreen, hole);
+    canvas.drawPath(combined, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
