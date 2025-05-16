@@ -20,7 +20,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
   bool _camaraInicializada = false;
   XFile? _imagenCapturada;
   String _instruccion =
-      'Incline su celular horizontalmente y alinee el documento';
+      'Incline su celular horizontalmente y alinee el documento al lado izquierdo';
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
 
     _controladorCamara = CameraController(
       camaraTrasera,
-      ResolutionPreset.high,
+      ResolutionPreset.max,
       enableAudio: false,
     );
 
@@ -58,8 +58,11 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
 
   Future<void> _capturarImagen() async {
     try {
+      // 📸 Tomar la foto con la cámara
       final imagen = await _controladorCamara.takePicture();
       final bytes = await File(imagen.path).readAsBytes();
+
+      // 🖼️ Decodificar la imagen en memoria para poder procesarla
       img.Image? original = img.decodeImage(bytes);
 
       if (original == null) {
@@ -67,40 +70,44 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
         return;
       }
 
-      // Obtener la orientación real del sensor
-      final orientation = _controladorCamara.description.sensorOrientation;
+      // Forzamos la rotación porque la vista siempre es horizontal, pero la imagen es vertical
+      original = img.copyRotate(original, angle: 0);
 
-      // Determinar rotación necesaria (depende de tu preview)
-      int rotationAngle = 0;
-      if (orientation == 90) {
-        rotationAngle = -90;
-      } else if (orientation == 270) {
-        rotationAngle = 90;
-      }
+      // 📐 Tamaño real de la pantalla (considerando que usaste RotatedBox(quarterTurns: 1))
+      final screenWidth = MediaQuery.of(context).size.width;
+      final screenHeight = MediaQuery.of(context).size.height;
 
-      original = img.copyRotate(original, angle: rotationAngle);
+      // 📦 Definir el marco naranja visible (mismo tamaño que usaste en el Widget)
+      final marcoEnPantalla = Rect.fromCenter(
+        center: Offset(screenWidth / 2, screenHeight / 2),
+        width: screenWidth * 0.9,
+        height: screenHeight * 0.7,
+      );
 
-      // 📐 Dimensiones del marco visible (el rectángulo naranja)
-      final screenWidth =
-          MediaQuery.of(context).size.height; // porque está girado
-      final screenHeight = MediaQuery.of(context).size.width;
-
-      final marcoWidth = screenWidth * 0.8;
-      final marcoHeight = screenHeight * 0.5;
-
-      final marcoLeft = (screenWidth - marcoWidth) / 2;
-      final marcoTop = (screenHeight - marcoHeight) / 2;
-
-      // 🧮 Convertimos coordenadas de pantalla a imagen
+      // 📏 Escalado proporcional de la imagen con respecto al tamaño de pantalla
       final scaleX = original.width / screenWidth;
       final scaleY = original.height / screenHeight;
 
-      final cropX = (marcoLeft * scaleX).toInt();
-      final cropY = (marcoTop * scaleY).toInt();
-      final cropWidth = (marcoWidth * scaleX).toInt();
-      final cropHeight = (marcoHeight * scaleY).toInt();
+      // 🔁 Convertir las coordenadas del marco en pantalla a coordenadas reales en la imagen
+      final cropX = (marcoEnPantalla.left * scaleX).toInt().clamp(
+        0,
+        original.width - 1,
+      );
+      final cropY = (marcoEnPantalla.top * scaleY).toInt().clamp(
+        0,
+        original.height - 1,
+      );
+      final cropWidth = (marcoEnPantalla.width * scaleX).toInt().clamp(
+        0,
+        original.width - cropX,
+      );
+      final cropHeight = (marcoEnPantalla.height * scaleY).toInt().clamp(
+        0,
+        original.height - cropY,
+      );
 
-      final recorte = img.copyCrop(
+      // ✂️ Recortar la imagen a la región exactamente dentro del marco
+      final recortada = img.copyCrop(
         original,
         x: cropX,
         y: cropY,
@@ -108,19 +115,25 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
         height: cropHeight,
       );
 
-      final rutaRecorte = '${imagen.path}_recortada.jpg';
-      final archivoRecorte = File(rutaRecorte)
-        ..writeAsBytesSync(img.encodeJpg(recorte));
+      // 💾 Guardar la imagen recortada en un nuevo archivo
+      final rutaRecorte = '${imagen.path}_recorte.jpg';
+      final archivoFinal = File(rutaRecorte)
+        ..writeAsBytesSync(img.encodeJpg(recortada, quality: 90));
 
+      // ✅ Mostrar vista previa y mensaje de éxito
       setState(() {
         _imagenCapturada = XFile(rutaRecorte);
         _instruccion = '✅ Documento recortado correctamente';
       });
 
+      // ⏳ Esperar 1 segundo antes de cerrar
       await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      Navigator.pop(context, archivoRecorte);
+
+      // 🔙 Devolver la imagen recortada
+      Navigator.pop(context, archivoFinal);
     } catch (e) {
+      // ❌ Mostrar error si algo falla
       setState(() => _instruccion = '❌ Error al capturar imagen');
     }
   }
@@ -146,7 +159,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(),
+              const CircularProgressIndicator(color: Colors.white),
               const SizedBox(height: 20),
               Text(
                 'Configurando cámara...',
@@ -168,7 +181,15 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
       body: Stack(
         children: [
           // Vista de la cámara rotada para horizontalidad
-          RotatedBox(quarterTurns: 1, child: CameraPreview(_controladorCamara)),
+          RotatedBox(
+            quarterTurns: 1,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _controladorCamara.value.aspectRatio,
+                child: CameraPreview(_controladorCamara),
+              ),
+            ),
+          ),
 
           // Marco rectangular para el documento
           Center(
@@ -177,7 +198,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
               height: MediaQuery.of(context).size.height * 0.5,
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.orange, width: 3),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(9),
               ),
             ),
           ),
@@ -216,7 +237,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -254,6 +275,7 @@ class _CameraCardCaptureScreenState extends State<CameraCardCaptureScreen> {
       ),
     );
   }
+
 }
 
 class _PintorMarcoDocumento extends CustomPainter {

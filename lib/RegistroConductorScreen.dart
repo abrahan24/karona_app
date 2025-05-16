@@ -195,8 +195,8 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
                 borderRadius: BorderRadius.circular(8),
                 child: Image.file(
                   foto,
-                  width: esDocumento ? 224 : 144,
-                  height: esDocumento ? 144 : 200,
+                  width: esDocumento ? 240 : 144,
+                  height: esDocumento ? 150 : 200,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -317,32 +317,30 @@ class _RegistroConductorScreenState extends State<RegistroConductorScreen> {
         }
       }
 
-      if (file != null) {
-        if (tipo == 1 || tipo == 2) {
-          // Procesar OCR
-          final inputImage = InputImage.fromFile(file);
-          final recognizedText = await _textRecognizer.processImage(inputImage);
+      if (tipo == 1 || tipo == 2) {
+        // Procesar OCR
+        final inputImage = InputImage.fromFile(file);
+        final recognizedText = await _textRecognizer.processImage(inputImage);
 
-          setState(() {
-            _ultimoTextoReconocido = recognizedText.text;
+        setState(() {
+          _ultimoTextoReconocido = recognizedText.text;
 
-            if (tipo == 1) {
-              fotoDocumentoAnverso = file;
-            } else {
-              fotoLicenciaAnverso = file;
-            }
-          });
+          if (tipo == 1) {
+            fotoDocumentoAnverso = file;
+          } else {
+            fotoLicenciaAnverso = file;
+          }
+        });
 
-          _mostrarTextoReconocido(recognizedText.text);
-        } else if (tipo == 0) {
-          setState(() {
-            fotoRostro = file;
-          });
-        }
-
-        _verificarCompletitud();
+        _mostrarTextoReconocido(recognizedText.text);
+      } else if (tipo == 0) {
+        setState(() {
+          fotoRostro = file;
+        });
       }
-    } catch (e) {
+
+      _verificarCompletitud();
+        } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al procesar imagen: ${e.toString()}')),
       );
